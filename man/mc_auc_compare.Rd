@@ -3,13 +3,7 @@
 \name{mc_auc_compare}
 \alias{mc_auc_compare}
 \alias{print.mc_auc_compare}
-\title{Compares the Hand & Till multiclass AUC of two classification models
-using a paired stratified bootstrap to quantify uncertainty in their
-AUC difference.
-Both models must be scored on the same observations, in the same order.
-Each bootstrap replicate resamples observations within each class and
-applies the SAME sampled rows to both models. This preserves the paired
-structure because both models are evaluated on identical bootstrap samples.}
+\title{Compare the multiclass AUC of two models}
 \usage{
 mc_auc_compare(
   truth,
@@ -18,27 +12,27 @@ mc_auc_compare(
   levels = NULL,
   n_boot = 1000,
   conf_level = 0.95,
-  seed = NULL
+  seed = NULL,
+  labels = NULL
 )
 
 \method{print}{mc_auc_compare}(x, ...)
 }
 \arguments{
-\item{truth}{True class labels (factor or character), or an \code{mc_roc}
-object. At least three classes are required.}
+\item{truth}{True class labels (factor, character or integer vector), or
+an \code{mc_roc} object for the first model.}
 
-\item{probs1}{Predicted class probabilities from the first model: a
-numeric matrix or data frame, one row per observation and one column
-per class, column names matching the class labels. May also be an
-\code{mc_roc} object. When \code{truth} is an \code{mc_roc} object, this argument may
-instead provide the predictions or \code{mc_roc} object for the second model.}
+\item{probs1}{The first model's predicted probabilities: a numeric matrix
+or data frame, one row per observation and one column per class, named
+exactly as the class labels (any column order). May also be an \code{mc_roc}
+object. When \code{truth} is an \code{mc_roc} object, give the second model here.}
 
-\item{probs2}{Predicted class probabilities from the second model, or a
-second \code{mc_roc} object, scored on the same observations in the same
-order as \code{probs1}.}
+\item{probs2}{The second model's predicted probabilities, in the same form
+and the same row order as \code{probs1}, or an \code{mc_roc} object.}
 
-\item{levels}{The full set of class labels. Defaults to the levels of
-\code{truth}.}
+\item{levels}{Optional set of class labels. Every label in \code{truth} must
+be one of them; classes with no observations are dropped, as in
+\code{\link[=mc_roc]{mc_roc()}}. Defaults to the labels in \code{truth}.}
 
 \item{n_boot}{Number of bootstrap replicates. A positive whole number.
 Default 1000.}
@@ -46,7 +40,11 @@ Default 1000.}
 \item{conf_level}{Confidence level for the interval, strictly between 0
 and 1. Default 0.95.}
 
-\item{seed}{Optional integer, for a reproducible bootstrap.}
+\item{seed}{Optional single number, for a reproducible bootstrap.}
+
+\item{labels}{Optional names for the two models, used by \code{print()} and
+\code{plot()}. Defaults to the labels of \code{mc_roc} objects, or the variable
+names passed as \code{probs1} and \code{probs2}, or "Model 1" and "Model 2".}
 
 \item{x}{An \code{mc_auc_compare} object.}
 
@@ -65,32 +63,78 @@ An object of class \code{mc_auc_compare}, a list containing:
 \item{bootstrap_values}{the successful bootstrap differences}
 \item{pairwise}{data frame, one row per class pair: pair, class1,
 class2, auc1, auc2 and difference, from the observed data (no
-intervals), or \code{NULL} if the probability columns are not named
-after the classes. Used by \code{plot(type = "pairs")}.}
+intervals). Used by \code{plot(type = "pairs")}.}
+\item{labels}{the two model names}
+\item{n, n_used}{rows supplied, and rows used (complete in both
+models)}
 
-The component names follow \code{\link[=mc_auc_ci]{mc_auc_ci()}}, so the interval, standard
-error and replicate counts are read the same way from both results.
+The interval, standard error and replicate components have the same
+names as in \code{\link[=mc_auc_ci]{mc_auc_ci()}}, so both results are read the same way.
 }
 \description{
-Hand & Till multiclass AUC values are computed using
-\code{\link[pROC:multiclass]{pROC::multiclass.roc()}} for the observed data and each bootstrap
-replicate, consistent with the AUC calculation used by \code{\link[=mc_roc]{mc_roc()}}.
+Compares the Hand & Till (2001) multiclass AUC of two classification
+models scored on the same observations, using a paired stratified
+bootstrap to measure the uncertainty in their AUC difference.
+}
+\details{
+\strong{Same checks as \code{\link[=mc_roc]{mc_roc()}}.} Each model's labels and probabilities go
+through the same checks as \code{\link[=mc_roc]{mc_roc()}} (column names matching the class
+labels, values between 0 and 1, rows summing to 1, at least three
+classes), and the observed AUCs and per-pair AUCs are taken from
+\code{mc_roc()}, so \code{mc_auc_compare()} and \code{mc_roc()} always report the same
+AUC for the same data. Warnings about small or imbalanced classes are
+shown once, not once per model.
+
+\strong{Missing values.} A row with a missing label, or a missing probability
+in either model, is left out of both models, with a warning giving the
+count and percentage. Dropping it from both keeps the comparison paired:
+the two AUCs are always computed on exactly the same rows.
+
+\strong{Bootstrap.} Each replicate resamples rows within each class, so class
+sizes never change and no class can disappear (including a class with a
+single row), and applies the same rows to both models. The AUCs inside
+the loop use an exact rank-based Hand & Till calculation that gives the
+same value as pROC but is several times faster.
+
+The interval is the percentile interval of the bootstrap differences. The
+p-value is two-sided: twice the smaller of the shares of replicates at or
+above zero and at or below zero, capped at 1. Small p-values are limited
+by the number of replicates; \code{print()} shows a value of zero as
+\verb{< 1 / n_successful}.
+
+\strong{Random numbers.} With \code{seed}, the result is reproducible and your own
+random-number stream is left exactly as it was.
 }
 \examples{
 \donttest{
-set.seed(1)
-fit1 <- nnet::multinom(Species ~ Petal.Length + Petal.Width,
-                       data = iris, trace = FALSE)
-fit2 <- nnet::multinom(Species ~ Sepal.Length + Sepal.Width,
-                       data = iris, trace = FALSE)
-mc_auc_compare(iris$Species,
-               predict(fit1, type = "probs"),
-               predict(fit2, type = "probs"),
-               n_boot = 100, seed = 42)
+petals <- nnet::multinom(Species ~ Petal.Length + Petal.Width,
+                         data = iris, trace = FALSE)
+sepals <- nnet::multinom(Species ~ Sepal.Length + Sepal.Width,
+                         data = iris, trace = FALSE)
+res <- mc_auc_compare(iris$Species,
+                      predict(petals, type = "probs"),
+                      predict(sepals, type = "probs"),
+                      n_boot = 200, seed = 42,
+                      labels = c("Petals", "Sepals"))
+res
+plot(res)
+plot(res, type = "pairs")
+
+# mc_roc objects work too, and keep their labels
+fit_p <- mc_roc(iris$Species, predict(petals, type = "probs"),
+                label = "Petals")
+fit_s <- mc_roc(iris$Species, predict(sepals, type = "probs"),
+                label = "Sepals")
+mc_auc_compare(fit_p, fit_s, n_boot = 200, seed = 42)
 }
 
 }
+\references{
+Hand, D. J. & Till, R. J. (2001). A simple generalisation of
+the area under the ROC curve for multiple class classification problems.
+Machine Learning, 45, 171-186.
+}
 \seealso{
-\code{\link[=mc_auc_ci]{mc_auc_ci()}} for one model, \code{\link[=mc_roc]{mc_roc()}} to build the object,
+\code{\link[=mc_auc_ci]{mc_auc_ci()}} for one model, \code{\link[=mc_roc]{mc_roc()}} for one model's AUC,
 \code{\link[=plot.mc_auc_compare]{plot.mc_auc_compare()}} to plot the result.
 }

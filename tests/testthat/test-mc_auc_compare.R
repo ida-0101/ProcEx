@@ -1,35 +1,6 @@
-# Tests for mc_auc_compare().
-
-#   signal   how separable the classes are (0 = no information)
-#   weights  class proportions, e.g. c(0.7, 0.2, 0.1) for imbalance
-sim_mc <- function(n = 300, k = 3, signal = 1.5, seed = 1,
-                   weights = rep(1, k)) {
-  set.seed(seed)
-  y <- factor(sample(letters[seq_len(k)], n, replace = TRUE, prob = weights),
-              levels = letters[seq_len(k)])
-  z <- matrix(stats::rnorm(n * k), n, k)
-  idx <- cbind(seq_len(n), as.integer(y))
-  z[idx] <- z[idx] + signal
-  p <- exp(z) / rowSums(exp(z))
-  colnames(p) <- levels(y)
-  list(y = y, p = p)
-}
-
-# Independent Hand & Till (2001) implementation, written from the paper.
-# A(i|j) = P(a class-i row scores higher on P(class i) than a class-j row).
-ht_A <- function(y, p, i, j) {
-  si <- p[y == i, i]; sj <- p[y == j, i]
-  mean(outer(si, sj, ">") + 0.5 * outer(si, sj, "=="))
-}
-hand_till <- function(y, p) {
-  pr <- utils::combn(levels(y), 2)
-  mean(apply(pr, 2, function(q) (ht_A(y, p, q[1], q[2]) + ht_A(y, p, q[2], q[1])) / 2))
-}
-
-
 # Tests for mc_auc_compare()
-# Argument names: truth, probs1, probs2, levels, n_boot, conf_level, seed.
-# sim_mc() and hand_till() come from helper-sim.R.
+# Argument names: truth, probs1, probs2, levels, n_boot, conf_level, seed,
+# labels. sim_mc() and hand_till() come from helper-sim.R.
 
 # Two iris models: "strong" uses the petals, "weak" uses the sepals.
 make_iris_pair <- function() {
@@ -55,7 +26,7 @@ test_that("returns a well-formed mc_auc_compare object", {
   expect_named(res, c("auc1", "auc2", "difference", "lower_ci", "upper_ci",
                       "standard_error", "p_value", "conf_level", "n_boot",
                       "n_successful", "n_failed", "bootstrap_values",
-                      "pairwise"))
+                      "pairwise", "labels", "n", "n_used"))
   expect_equal(res$n_boot, 100)
   expect_equal(res$n_successful + res$n_failed, 100)
   expect_length(res$bootstrap_values, res$n_successful)
@@ -171,9 +142,20 @@ test_that("a class with a single row stays in every bootstrap sample", {
   y[y == "d"] <- "c"
   y[60] <- "d"                                   # class d has exactly 1 row
 
-  expect_no_warning(
-    res <- mc_auc_compare(y, d$p, e$p, n_boot = 50, seed = 1)
+  warnings <- character()
+  res <- withCallingHandlers(
+    mc_auc_compare(y, d$p, e$p, n_boot = 50, seed = 1),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
   )
+  # Only the shared class-size warnings, once each; nothing from pROC about
+  # a class missing from a replicate.
+  expect_identical(warnings, unique(warnings))
+  expect_true(all(grepl("fewer than 10 observations|imbalance ratio",
+                        warnings)))
+  expect_false(any(grepl("No observation for response level", warnings)))
   expect_equal(res$n_failed, 0)
 })
 
@@ -229,8 +211,9 @@ test_that("mc_roc objects can be passed in place of truth and probabilities", {
 test_that("fewer than three classes is rejected", {
   two   <- iris$Species != "virginica"
   truth <- droplevels(iris$Species[two])
-  probs <- matrix(stats::runif(sum(two) * 2), ncol = 2,
-                  dimnames = list(NULL, levels(truth)))
+  p     <- stats::runif(sum(two))
+  probs <- cbind(p, 1 - p)              # valid probabilities, two classes
+  colnames(probs) <- levels(truth)
 
   expect_error(mc_auc_compare(truth, probs, probs), "at least 3 classes",
                ignore.case = TRUE)
@@ -290,16 +273,15 @@ test_that("invalid conf_level values are rejected", {
 
 test_that("failed replicates are counted and warned about", {
   d <- make_iris_pair()
-  real <- pROC::multiclass.roc
+  real <- .mc_auc_fast
   calls <- 0
-  # Let the two observed AUCs through, then fail every 4th call.
+  # The bootstrap computes two AUCs per replicate; fail every 4th one.
   testthat::local_mocked_bindings(
-    multiclass.roc = function(...) {
+    .mc_auc_fast = function(truth, probs) {
       calls <<- calls + 1
-      if (calls > 2 && calls %% 4 == 0) stop("simulated failure")
-      real(...)
-    },
-    .package = "pROC"
+      if (calls %% 4 == 0) stop("simulated failure")
+      real(truth, probs)
+    }
   )
 
   expect_warning(
@@ -314,15 +296,8 @@ test_that("failed replicates are counted and warned about", {
 
 test_that("it stops when almost every replicate fails", {
   d <- make_iris_pair()
-  real <- pROC::multiclass.roc
-  calls <- 0
   testthat::local_mocked_bindings(
-    multiclass.roc = function(...) {
-      calls <<- calls + 1
-      if (calls > 2) stop("simulated failure")
-      real(...)
-    },
-    .package = "pROC"
+    .mc_auc_fast = function(truth, probs) stop("simulated failure")
   )
 
   expect_error(mc_auc_compare(d$truth, d$strong, d$weak, n_boot = 10, seed = 1),
@@ -353,4 +328,196 @@ test_that("print() shows a tiny p-value as '< 1/n_boot', not 0.0000", {
 
   same <- mc_auc_compare(d$truth, d$strong, d$strong, n_boot = 100, seed = 1)
   expect_output(print(same), "p-value      : 1.0000", fixed = TRUE)
+})
+
+
+# Same checks and AUC as mc_roc()
+
+test_that("both AUCs and the per-pair AUCs equal mc_roc()", {
+  d <- make_iris_pair()
+  res <- mc_auc_compare(d$truth, d$strong, d$weak, n_boot = 20, seed = 1)
+
+  expect_equal(res$auc1, mc_roc(d$truth, d$strong)$auc)
+  expect_equal(res$auc2, mc_roc(d$truth, d$weak)$auc)
+  expect_equal(res$pairwise$auc1, mc_roc(d$truth, d$strong)$pairwise$auc)
+  expect_equal(res$pairwise$auc2, mc_roc(d$truth, d$weak)$pairwise$auc)
+})
+
+test_that("each bootstrap difference equals pROC on the same resampled rows", {
+  d <- make_iris_pair()
+  res <- mc_auc_compare(d$truth, d$strong, d$weak, n_boot = 5, seed = 21)
+
+  set.seed(21)
+  for (b in 1:5) {
+    i <- mc_boot_index(d$truth)
+    a1 <- as.numeric(pROC::multiclass.roc(d$truth[i], d$strong[i, ],
+                                          direction = ">")$auc)
+    a2 <- as.numeric(pROC::multiclass.roc(d$truth[i], d$weak[i, ],
+                                          direction = ">")$auc)
+    expect_equal(res$bootstrap_values[b], a1 - a2)
+  }
+})
+
+test_that("scores that are not probabilities are rejected, naming the model", {
+  d <- make_iris_pair()
+  logits <- log(d$weak) + 2
+
+  expect_error(mc_auc_compare(d$truth, d$strong, logits, n_boot = 10),
+               "probs2: Data checks failed")
+  expect_error(mc_auc_compare(d$truth, logits, d$weak, n_boot = 10),
+               "probs1: Data checks failed")
+})
+
+test_that("column names that do not match the classes are rejected", {
+  d <- make_iris_pair()
+  wrong <- d$weak
+  colnames(wrong) <- c("A", "B", "C")
+
+  expect_error(mc_auc_compare(d$truth, d$strong, wrong, n_boot = 10),
+               "probs2: .*column names")
+})
+
+test_that("class-size warnings appear once, not once per model", {
+  d <- sim_mc(n = 105, k = 3, signal = 2, seed = 4,
+              weights = c(0.48, 0.48, 0.04))
+  warnings <- character()
+  withCallingHandlers(
+    mc_auc_compare(d$y, d$p, d$p[, 3:1], n_boot = 10, seed = 1),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_identical(warnings, unique(warnings))
+  expect_true(any(grepl("fewer than 10 observations", warnings)))
+})
+
+
+# Missing values
+
+test_that("a row missing in either model is left out of both, with a warning", {
+  d <- make_iris_pair()
+  weak <- d$weak
+  weak[c(3, 60, 120), "versicolor"] <- NA
+  keep <- !seq_len(150) %in% c(3, 60, 120)
+
+  expect_warning(
+    res <- mc_auc_compare(d$truth, d$strong, weak, n_boot = 20, seed = 1),
+    "3 of 150 rows \\(2.0%\\).*left out of both"
+  )
+  expect_equal(res$n, 150)
+  expect_equal(res$n_used, 147)
+  # Model 1 had no missing values, but uses the same 147 rows as model 2.
+  expect_equal(res$auc1, mc_roc(d$truth[keep], d$strong[keep, ])$auc)
+  expect_equal(res$auc2, mc_roc(d$truth[keep], weak[keep, ])$auc)
+  expect_output(print(res), "Rows used\\s+: 147 of 150")
+})
+
+test_that("a missing label is left out too", {
+  d <- make_iris_pair()
+  y <- d$truth
+  y[10] <- NA
+
+  expect_warning(res <- mc_auc_compare(y, d$strong, d$weak, n_boot = 10,
+                                       seed = 1),
+                 "1 of 150 rows")
+  expect_equal(res$n_used, 149)
+})
+
+test_that("a class with no complete rows is a clear error", {
+  d <- make_iris_pair()
+  weak <- d$weak
+  weak[d$truth == "setosa", "setosa"] <- NA
+
+  expect_error(suppressWarnings(
+    mc_auc_compare(d$truth, d$strong, weak, n_boot = 10)),
+    "No rows complete in both models for class\\(es\\): setosa")
+})
+
+
+# mc_roc objects, labels and levels
+
+test_that("mc_roc objects fitted on different labels are rejected", {
+  d <- make_iris_pair()
+  fit1 <- mc_roc(d$truth, d$strong)
+  fit2 <- mc_roc(rev(d$truth), d$weak)
+
+  expect_error(mc_auc_compare(fit1, fit2, n_boot = 10),
+               "fitted on different class labels")
+  expect_error(mc_auc_compare(d$truth, d$strong, fit2, n_boot = 10),
+               "fitted on different class labels")
+})
+
+test_that("unclear model arguments are rejected", {
+  d <- make_iris_pair()
+  fit1 <- mc_roc(d$truth, d$strong)
+
+  expect_error(mc_auc_compare(fit1, d$weak, d$weak, n_boot = 10),
+               "give only the second model")
+  expect_error(mc_auc_compare(fit1, n_boot = 10), "Supply a second model")
+  expect_error(mc_auc_compare(d$truth, d$strong, n_boot = 10),
+               "Supply two models")
+})
+
+test_that("labels come from mc_roc objects, variable names or the labels argument", {
+  d <- make_iris_pair()
+  strong <- d$strong
+  weak <- d$weak
+
+  by_name <- mc_auc_compare(d$truth, strong, weak, n_boot = 10, seed = 1)
+  expect_identical(by_name$labels, c("strong", "weak"))
+
+  unnamed <- mc_auc_compare(d$truth, d$strong, d$weak, n_boot = 10, seed = 1)
+  expect_identical(unnamed$labels, c("Model 1", "Model 2"))
+
+  fits <- mc_auc_compare(mc_roc(d$truth, strong, label = "Petals"),
+                         mc_roc(d$truth, weak, label = "Sepals"),
+                         n_boot = 10, seed = 1)
+  expect_identical(fits$labels, c("Petals", "Sepals"))
+
+  given <- mc_auc_compare(d$truth, strong, weak, n_boot = 10, seed = 1,
+                          labels = c("A", "B"))
+  expect_identical(given$labels, c("A", "B"))
+  expect_output(print(given), "A AUC\\s+: 0\\.99")
+
+  expect_error(mc_auc_compare(d$truth, strong, weak, labels = "one"),
+               "labels must be NULL or a character vector of length 2")
+})
+
+test_that("levels must contain every label in truth", {
+  d <- make_iris_pair()
+
+  expect_error(mc_auc_compare(d$truth, d$strong, d$weak, n_boot = 10,
+                              levels = c("setosa", "versicolor")),
+               "truth contains labels not in levels: virginica")
+  expect_error(mc_auc_compare(d$truth, d$strong, d$weak, n_boot = 10,
+                              levels = c("setosa", "setosa", "virginica")),
+               "levels must be a vector of distinct class labels")
+})
+
+
+# Random numbers
+
+test_that("seed gives a reproducible result and leaves the user's random stream alone", {
+  d <- make_iris_pair()
+
+  set.seed(100)
+  expected_next <- stats::runif(1)
+
+  set.seed(100)
+  a <- mc_auc_compare(d$truth, d$strong, d$weak, n_boot = 20, seed = 5)
+  expect_identical(stats::runif(1), expected_next)
+
+  b <- mc_auc_compare(d$truth, d$strong, d$weak, n_boot = 20, seed = 5)
+  expect_identical(a$bootstrap_values, b$bootstrap_values)
+})
+
+test_that("invalid seeds are rejected", {
+  d <- make_iris_pair()
+  for (bad in list("1", c(1, 2), NA_real_, Inf)) {
+    expect_error(mc_auc_compare(d$truth, d$strong, d$weak, n_boot = 5,
+                                seed = bad),
+                 "seed must be NULL or a single number",
+                 info = paste("seed =", deparse(bad)))
+  }
 })

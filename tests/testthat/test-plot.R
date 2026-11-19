@@ -185,3 +185,13 @@ test_that("plot.mc_auc_compare rejects bad input", {
 
   expect_error(plot.mc_auc_compare(list()), "mc_auc_compare")
 })
+
+test_that("plot.mc_auc_compare uses the stored model names by default", {
+  m <- iris_models()
+  res <- mc_auc_compare(m$truth, m$strong, m$weak, n_boot = 20, seed = 1,
+                        labels = c("Petals", "Sepals"))
+  draw(expect_invisible(plot(res)))
+  no_labels <- res
+  no_labels$labels <- NULL                 # e.g. a result from an older version
+  draw(expect_invisible(plot(no_labels, type = "pairs")))
+})

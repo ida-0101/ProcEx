@@ -315,7 +315,8 @@ plot.mc_roc <- function(x, type = c("pairs", "heatmap"), pairs = NULL,
 #'
 #' @param x An `mc_auc_compare` object.
 #' @param type `"bootstrap"` or `"pairs"`.
-#' @param labels Names for the two models, in order.
+#' @param labels Names for the two models, in order. Defaults to the labels
+#'   stored by [mc_auc_compare()].
 #' @param main Optional title.
 #' @param ... Ignored.
 #'
@@ -330,20 +331,23 @@ plot.mc_roc <- function(x, type = c("pairs", "heatmap"), pairs = NULL,
 #' res <- mc_auc_compare(iris$Species,
 #'                       predict(fit1, type = "probs"),
 #'                       predict(fit2, type = "probs"),
-#'                       n_boot = 200, seed = 42)
+#'                       n_boot = 200, seed = 42,
+#'                       labels = c("Petals", "Sepals"))
 #' plot(res)
-#' plot(res, type = "pairs", labels = c("Petals", "Sepals"))
+#' plot(res, type = "pairs")
 #' }
 #'
 #' @seealso [mc_auc_compare()], [plot.mc_roc()]
 #' @export
 plot.mc_auc_compare <- function(x, type = c("bootstrap", "pairs"),
-                                labels = c("Model 1", "Model 2"),
-                                main = NULL, ...) {
+                                labels = NULL, main = NULL, ...) {
   if (!inherits(x, "mc_auc_compare")) {
     stop("x must be an object of class 'mc_auc_compare'.", call. = FALSE)
   }
   type <- .mc_check_choice(type, c("bootstrap", "pairs"))
+  if (is.null(labels)) {
+    labels <- if (is.null(x$labels)) c("Model 1", "Model 2") else x$labels
+  }
   if (!is.character(labels) || length(labels) != 2 || anyNA(labels)) {
     stop("labels must be a character vector of length 2.", call. = FALSE)
   }
@@ -352,9 +356,8 @@ plot.mc_auc_compare <- function(x, type = c("bootstrap", "pairs"),
     .mc_plot_boot_diff(x, labels, main)
   } else {
     if (is.null(x$pairwise)) {
-      stop("This result has no per-pair AUCs. They need probability ",
-           "columns named after the classes; if the result came from an ",
-           "older version of ProcEx, re-run mc_auc_compare().", call. = FALSE)
+      stop("This result has no per-pair AUCs; it was made by an older ",
+           "version of ProcEx. Re-run mc_auc_compare().", call. = FALSE)
     }
     .mc_plot_pair_compare(x, labels, main)
   }
@@ -456,9 +459,15 @@ plot.mc_auc_compare <- function(x, type = c("bootstrap", "pairs"),
     "Pair AUC (axis zoomed to the data)"
   }, col.lab = .mc_col$ink2)
   graphics::title(main = main, cex.main = 1, col.main = .mc_col$ink,
-                  line = 2.4)
-  graphics::legend("top", horiz = TRUE, bty = "n", cex = 0.8, xpd = NA,
-                   inset = c(0, -0.07), pch = 21, pt.cex = 1.3,
+                  line = 2.6)
+  # Legend just above the plotting area, so it never covers a row.
+  usr <- graphics::par("usr")
+  top_in <- graphics::grconvertY(usr[4], from = "user", to = "inches")
+  graphics::legend(x = mean(usr[1:2]),
+                   y = graphics::grconvertY(top_in + 0.03, from = "inches",
+                                            to = "user"),
+                   xjust = 0.5, yjust = 0, horiz = TRUE, bty = "n",
+                   cex = 0.8, xpd = NA, pch = 21, pt.cex = 1.3,
                    pt.bg = c(.mc_col$model1, .mc_col$model2),
                    col = "#ffffff", text.col = .mc_col$ink,
                    legend = sprintf("%s (overall %.3f)", labels,

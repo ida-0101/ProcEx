@@ -4,20 +4,15 @@
 \alias{plot.mc_auc_compare}
 \title{Plot a comparison of two multiclass models}
 \usage{
-\method{plot}{mc_auc_compare}(
-  x,
-  type = c("bootstrap", "pairs"),
-  labels = c("Model 1", "Model 2"),
-  main = NULL,
-  ...
-)
+\method{plot}{mc_auc_compare}(x, type = c("bootstrap", "pairs"), labels = NULL, main = NULL, ...)
 }
 \arguments{
 \item{x}{An \code{mc_auc_compare} object.}
 
 \item{type}{\code{"bootstrap"} or \code{"pairs"}.}
 
-\item{labels}{Names for the two models, in order.}
+\item{labels}{Names for the two models, in order. Defaults to the labels
+stored by \code{\link[=mc_auc_compare]{mc_auc_compare()}}.}
 
 \item{main}{Optional title.}
 
@@ -55,9 +50,10 @@ fit2 <- nnet::multinom(Species ~ Sepal.Length + Sepal.Width,
 res <- mc_auc_compare(iris$Species,
                       predict(fit1, type = "probs"),
                       predict(fit2, type = "probs"),
-                      n_boot = 200, seed = 42)
+                      n_boot = 200, seed = 42,
+                      labels = c("Petals", "Sepals"))
 plot(res)
-plot(res, type = "pairs", labels = c("Petals", "Sepals"))
+plot(res, type = "pairs")
 }
 
 }
