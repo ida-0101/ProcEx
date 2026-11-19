@@ -1,4 +1,4 @@
-# plot.R -- plot methods for mc_roc and mc_auc_compare objects.
+# plot.R: plot methods for mc_roc and mc_auc_compare objects.
 #
 #   plot.mc_roc()           pairwise ROC curves, or a heatmap of pairwise AUCs
 #   plot.mc_auc_compare()   bootstrap differences, or per-pair AUCs of both
@@ -7,7 +7,7 @@
 # Base graphics only, so plotting adds no dependency. Every function saves
 # and restores the user's par() settings.
 
-# ---- shared look ------------------------------------------------------------
+# Shared look
 
 .mc_col <- list(
   model1    = "#2a78d6",   # categorical slot 1 (blue)
@@ -51,7 +51,7 @@
   type[1]
 }
 
-# ---- plot.mc_roc ------------------------------------------------------------
+# plot.mc_roc()
 
 #' Plot a multiclass ROC object
 #'
@@ -292,7 +292,7 @@ plot.mc_roc <- function(x, type = c("pairs", "heatmap"), pairs = NULL,
                  cex.axis = 0.75, col.axis = .mc_col$ink2)
 }
 
-# ---- plot.mc_auc_compare -----------------------------------------------------
+# plot.mc_auc_compare()
 
 #' Plot a comparison of two multiclass models
 #'

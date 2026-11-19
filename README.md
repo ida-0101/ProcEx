@@ -258,9 +258,10 @@ cleaned_fit <- handle_missing(
 )
 
 cleaned_fit$missing_info
+cleaned_fit$auc
 ```
 
-The `missing_info` component reports the number and percentage of affected observations, the number removed or imputed, and the selected method.
+The returned object is rebuilt from the cleaned data, so its AUC, pairwise AUCs and row counts describe the data after removal or filling. The `missing_info` component reports the number and percentage of affected observations, the number removed or imputed, and the selected method.
 
 ## Profile Prediction Outliers
 
@@ -291,6 +292,10 @@ outlier_result <- profile_outliers(
 ```
 
 The function supports configurable IQR thresholds and optional custom probability limits.
+
+How to read the flags: the IQR limits for each probability column are calculated over all observations, most of which belong to other classes and have a low probability for that column. With four or more classes, confident correct predictions therefore often fall above the upper limit and are flagged as `"IQR outlier"`. These flags mark scores that are unusual within their column, not wrong predictions. The `"High-confidence wrong prediction"` flags (wrong class with probability of at least 0.90) are the ones that point to errors.
+
+`profile_auc_influence()` shows how much the multiclass AUC changes when each flagged observation is left out, and `profile_auc_combinations()` checks combinations of the most influential ones. Both recalculate the AUC once per observation or combination, so they can be slow when many observations are flagged.
 
 ## AUC Confidence Intervals
 
@@ -426,6 +431,10 @@ ProcEx functions have specific input requirements.
 
 Predicted probabilities should correspond to the supplied true class labels. `mc_roc()` and `mc_auc_compare()` need one probability column per class, named exactly as the class labels (any order), with values between 0 and 1 and each row summing to 1. Other scores, such as SVM decision values or logits, are rejected.
 
+Class labels can be a factor, character or integer vector. Probabilities that were rounded (for example, read back from a CSV file) may no longer sum to exactly 1; dividing each row by its total, `probs / rowSums(probs)`, fixes this. Column names from other tools, such as `.pred_setosa` from tidymodels, need renaming to the class labels first.
+
+`mc_auc_ci()`, `profile_outliers()`, `profile_auc_influence()` and `profile_auc_combinations()` do not accept missing values; use `handle_missing()` or remove them first.
+
 The main multiclass ROC and model comparison functions require at least three classes, while `mc_auc_ci()` also supports binary AUC estimation.
 
 Missing observations should be considered carefully because removal or imputation can influence subsequent results.
@@ -440,7 +449,7 @@ ProcEx is developed as a structured R package with source code, function documen
 
 Automated tests are implemented using `testthat`.
 
-For version 0.0.0.9001, the package test run produced 145 tests with 890 passing expectations, with zero failures, zero warnings, and zero skipped tests.
+For version 0.0.0.9001, the package test run produced 155 tests with 922 passing expectations, with zero failures, zero warnings, and zero skipped tests.
 
 The recorded R CMD check, including building the vignette, also completed with zero errors, zero warnings, and zero notes.
 

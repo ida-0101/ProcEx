@@ -22,7 +22,8 @@ answers four questions:
 3. **How sure can we be?** Bootstrap confidence intervals for one model, and
    a paired bootstrap comparison of two models.
 4. **Where does the model struggle?** Plots of the pairwise ROC curves and
-   AUCs show which pairs of classes are hard to tell apart.
+   AUCs show which pairs of classes are hard to tell apart, and the profile
+   functions flag unusual and confidently wrong predictions.
 
 ProcEx builds on the [pROC](https://CRAN.R-project.org/package=pROC) package
 and fills in the multiclass features pROC leaves out: confidence intervals,
@@ -163,11 +164,46 @@ with_gaps[c(5, 70), "setosa"] <- NA
 fit_gaps <- mc_roc(truth, with_gaps)
 ```
 
-`mc_auc_compare()` leaves such a row out of *both* models, so the two AUCs
-are still computed on the same rows. To remove or fill missing values in an
-`mc_roc` object, see `?handle_missing`.
+`handle_missing()` then removes those rows, or fills the missing
+probabilities with the column mean or median, and recalculates the AUC on
+the cleaned data:
 
-## 7. Why the ROC direction is fixed
+```{r handle-missing}
+cleaned <- handle_missing(fit_gaps, method = "median")
+cleaned$missing_info[c("n_affected", "n_imputed", "method")]
+c(before = fit_gaps$n_used, after = cleaned$n_used)
+cleaned$auc
+```
+
+`mc_auc_compare()` leaves a row with a missing value out of *both* models,
+so the two AUCs are still computed on the same rows.
+
+## 7. Unusual predictions
+
+`profile_outliers()` flags probabilities that are unusual within their
+column (the IQR rule) and predictions that are confidently wrong (wrong class
+with a probability of at least 0.90):
+
+```{r outliers}
+flags <- profile_outliers(truth, sepals)
+table(flags$reason)
+head(flags[flags$reason == "High-confidence wrong prediction", ])
+```
+
+The IQR limits for a column are calculated over all rows, most of which
+belong to other classes and have a low probability for that column. With
+four or more classes, confident *correct* predictions are therefore often
+flagged as "IQR outlier"; read those flags as "unusual score", not "error".
+The high-confidence wrong predictions are the ones that point to mistakes.
+
+`profile_auc_influence()` shows how much the AUC changes when each flagged
+observation is left out:
+
+```{r influence}
+head(profile_auc_influence(truth, sepals), 3)
+```
+
+## 8. Why the ROC direction is fixed
 
 An ROC curve needs a direction: are higher scores expected for the first
 class or the second? pROC's `roc()`, and `multiclass.roc()` with a single
@@ -204,8 +240,11 @@ mc_roc(truth, swapped)$auc
   `mc_auc_ci()` also handles two classes; for binary problems pROC itself
   offers more (DeLong intervals, `roc.test()`).
 * Probabilities need one column per class, named exactly as the class labels
-  (any order), with values between 0 and 1 and rows summing to 1. Scores
-  that are not probabilities are rejected.
+  (any order), with values between 0 and 1 and rows summing to 1. Rounded
+  probabilities can be fixed with `probs / rowSums(probs)`. Scores that are
+  not probabilities are rejected.
+* `mc_auc_ci()` and the `profile_*()` functions need complete data; use
+  `handle_missing()` first.
 * Bootstrap intervals describe the uncertainty from which rows happened to
   be in the evaluation data; they do not include the variation from
   retraining the model.

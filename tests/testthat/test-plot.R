@@ -19,7 +19,7 @@ iris_models <- function() {
        weak   = stats::predict(weak,   type = "probs"))
 }
 
-# ---- plot.mc_roc ------------------------------------------------------------
+# plot.mc_roc()
 
 test_that("plot.mc_roc draws both types and returns the object invisibly", {
   d <- sim_mc(n = 300, k = 4, signal = 1.5, seed = 2)
@@ -110,7 +110,7 @@ test_that("AUC colours run red below chance, grey at 0.5, blue toward 1", {
   expect_gt(rgb["blue", 3], rgb["red", 3])     # 1: blue
 })
 
-# ---- mc_auc_compare per-pair AUCs ---------------------------------------------
+# mc_auc_compare() per-pair AUCs
 
 test_that("mc_auc_compare stores per-pair AUCs that average to the overall AUC", {
   m <- iris_models()
@@ -138,7 +138,7 @@ test_that("per-pair AUCs match mc_roc() and ignore column order", {
   expect_equal(shuffled$pairwise, res$pairwise)
 })
 
-# ---- plot.mc_auc_compare -------------------------------------------------------
+# plot.mc_auc_compare()
 
 test_that("plot.mc_auc_compare draws both types and returns invisibly", {
   m <- iris_models()

@@ -58,23 +58,52 @@
   not match its location.
 * DESCRIPTION: `URL`, `BugReports`, vignette support, and `graphics` and
   `grDevices` in Imports (used by the plots).
+* Every exported function now has examples, and the help pages describe
+  what each function checks, how it works and what it returns.
+* The `profile_outliers()` help page, README and vignette explain how to
+  read IQR flags: with four or more classes, confident correct predictions
+  are often flagged, because each column's limits are calculated over all
+  rows.
+* The vignette now covers `handle_missing()`, `profile_outliers()` and
+  `profile_auc_influence()`.
+* Decorative divider lines (`# ---- ... ----`) were removed from code and
+  test comments.
 
-## Known issues (not changed in this version)
+## Bug fixes
 
-* `handle_missing()` changes the data but does not recalculate the AUC, so
-  `$auc`, `$n` and `$n_used` describe the data before handling. Ending it
-  with the internal `mc_refit()` would fix this.
-* `profile_outliers()` applies the IQR rule to each probability column across
-  all rows. With four or more classes this flags most confident, correct
-  predictions (77% of Dry Bean test rows), and `profile_auc_influence()` and
-  `profile_auc_combinations()` start from these flags.
-* `mc_auc_ci()` gives a wrong interval when a class has a single row
-  (`sample(i)` with one index draws from `1:i`); the internal
-  `mc_boot_index()` avoids this. Its argument is named `probabilities`,
-  where the other functions use `probs`.
-* `validate_classification_data()` requires rows to sum to 1 within 1e-6, so
-  probabilities rounded to 3 decimals (for example, read from a CSV) are
-  rejected.
+* `handle_missing()` now rebuilds the object after removing or filling rows,
+  so `$auc`, `$pairwise`, `$n`, `$n_used` and `$complete` describe the
+  cleaned data. Before, they still described the data before handling, and
+  after `"remove"` the object was internally inconsistent. The cleaning
+  itself is unchanged. If removing rows would leave a class empty, it now
+  stops with a clear error.
+* `mc_auc_ci()` now keeps a class with a single row in every bootstrap
+  sample. Before, `sample()` on one row number `k` drew from `1:k`, so the
+  class usually disappeared and the interval was wrong. For classes with two
+  or more rows the resampled rows are exactly the same as before.
+* `mc_auc_ci()` with `seed` no longer changes the caller's random-number
+  stream.
+* `profile_outliers()`, `profile_auc_influence()` and
+  `profile_auc_combinations()` accept integer class labels, like the other
+  functions.
+* `profile_outliers()` warns when the probability columns are not named
+  after the class labels, instead of silently skipping the high-confidence
+  wrong-prediction check.
+* `validate_classification_data()`: the "must sum to 1" error now gives the
+  largest difference and how to fix rounded probabilities
+  (`probs / rowSums(probs)`).
+
+## Known issues
+
+* `profile_outliers()` applies the IQR rule to each probability column over
+  all rows, so with four or more classes it flags many confident correct
+  predictions (77% of Dry Bean test rows). This is how the method is
+  designed and is now documented; changing the rule would change the
+  method.
+* `validate_classification_data()` requires rows to sum to 1 within 1e-6,
+  so rounded probabilities are rejected until they are renormalised.
+* `mc_auc_ci()` names its probability argument `probabilities`, where the
+  other functions use `probs`.
 * Pairwise confidence intervals are not implemented yet.
 
 # ProcEx 0.0.0.9000
