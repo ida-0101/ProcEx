@@ -499,9 +499,7 @@ test_that("truth must be a vector or factor", {
 })
 
 
-# --------------------------------------------------
 # PROBABILITY STRUCTURE TESTS
-# --------------------------------------------------
 
 test_that("probs must be a data frame or matrix", {
 
@@ -969,4 +967,22 @@ test_that("unused factor levels are ignored", {
   expect_false(
     "concern" %in% names(result)
   )
+})
+
+
+test_that("rows that do not sum to 1 get the size of the gap and a fix", {
+  fit <- nnet::multinom(Species ~ Sepal.Length + Sepal.Width,
+                        data = iris, trace = FALSE)
+  probs <- stats::predict(fit, type = "probs")
+  probs[1, ] <- c(0.333, 0.333, 0.333)    # rounded: sums to 0.999
+
+  result <- validate_classification_data(iris$Species, probs)
+  expect_identical(result$status, "INVALID")
+  expect_true(any(grepl("largest difference: 0.001", result$errors,
+                        fixed = TRUE)))
+  expect_true(any(grepl("probs / rowSums(probs)", result$errors,
+                        fixed = TRUE)))
+
+  fixed <- validate_classification_data(iris$Species, probs / rowSums(probs))
+  expect_identical(fixed$errors, character())
 })

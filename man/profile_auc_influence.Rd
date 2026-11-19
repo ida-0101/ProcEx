@@ -13,9 +13,10 @@ profile_auc_influence(
 )
 }
 \arguments{
-\item{truth}{True class labels.}
+\item{truth}{True class labels: a factor, character or integer vector.}
 
-\item{probs}{Predicted class probabilities.}
+\item{probs}{Predicted class probabilities (matrix or data frame), one
+column per class, named exactly as the class labels.}
 
 \item{iqr_multiplier}{Multiplier for IQR-based outlier detection.}
 
@@ -24,8 +25,10 @@ profile_auc_influence(
 \item{upper}{Optional custom upper probability limit.}
 }
 \value{
-A data frame containing observation, actual_class,
-original_auc, auc_without, and auc_change.
+A data frame with one row per evaluated observation, sorted by the
+size of the change: \code{observation}, \code{actual_class}, \code{original_auc},
+\code{auc_without} (AUC without that observation) and \code{auc_change}
+(\code{auc_without - original_auc}).
 }
 \description{
 Identifies flagged observations and calculates how much the
@@ -33,5 +36,24 @@ Hand-Till multiclass AUC changes when each observation is
 temporarily excluded, one at a time.
 }
 \details{
-The original dataset is not modified.
+Observations are flagged with \code{\link[=profile_outliers]{profile_outliers()}} using the same
+settings; see its help page for how the flags are chosen. For each flagged
+observation the AUC is recalculated without it. An observation whose
+removal would leave a class empty is skipped. The original data are not
+modified.
+
+The AUC is recalculated once per flagged observation, so the time taken
+grows with both the number of flags and the number of rows.
+}
+\examples{
+fit <- nnet::multinom(Species ~ Sepal.Length + Sepal.Width,
+                      data = iris, trace = FALSE)
+probs <- predict(fit, type = "probs")
+
+influence <- profile_auc_influence(iris$Species, probs)
+head(influence)
+
+}
+\seealso{
+\code{\link[=profile_outliers]{profile_outliers()}}, \code{\link[=profile_auc_combinations]{profile_auc_combinations()}}
 }

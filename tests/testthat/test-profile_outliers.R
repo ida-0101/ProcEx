@@ -208,9 +208,7 @@ test_that("AUC influence correctly detects improvement", {
 })
 
 
-# ==========================================
 # TESTS FOR profile_auc_combinations()
-# ==========================================
 
 test_that("Combination function returns correct output", {
   
@@ -322,4 +320,40 @@ test_that("Warning appears for many outliers", {
     ),
     "Influence analysis may take a long time"
   )
+})
+
+
+test_that("integer labels give the same flags as character labels", {
+  fit <- nnet::multinom(Species ~ Sepal.Length + Sepal.Width,
+                        data = iris, trace = FALSE)
+  probs <- stats::predict(fit, type = "probs")
+  as_numbers <- probs
+  colnames(as_numbers) <- c("1", "2", "3")
+  labels <- as.integer(iris$Species)
+
+  by_number <- profile_outliers(labels, as_numbers)
+  by_name   <- profile_outliers(as.character(labels), as_numbers)
+  expect_equal(by_number, by_name)
+
+  influence <- profile_auc_influence(labels, as_numbers)
+  expect_s3_class(influence, "data.frame")
+})
+
+test_that("unmatched column names give a warning instead of a silent skip", {
+  fit <- nnet::multinom(Species ~ Sepal.Length + Sepal.Width,
+                        data = iris, trace = FALSE)
+  probs <- stats::predict(fit, type = "probs")
+  colnames(probs) <- paste0(".pred_", colnames(probs))
+
+  expect_warning(
+    result <- profile_outliers(iris$Species, probs),
+    "high-confidence wrong predictions were not checked"
+  )
+  expect_false(any(result$reason == "High-confidence wrong prediction"))
+})
+
+test_that("labels that are not a vector are rejected", {
+  probs <- matrix(1 / 3, 3, 3, dimnames = list(NULL, c("a", "b", "c")))
+  expect_error(profile_outliers(list("a", "b", "c"), probs),
+               "truth must be a factor, character or integer vector")
 })

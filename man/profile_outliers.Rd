@@ -14,13 +14,16 @@ profile_outliers(
 )
 }
 \arguments{
-\item{truth}{True class labels (factor or character).}
+\item{truth}{True class labels: a factor, character or integer vector.}
 
-\item{probs}{Predicted class probabilities (matrix or data frame).}
+\item{probs}{Predicted class probabilities (matrix or data frame), one
+column per class.}
 
-\item{iqr_multiplier}{Multiplier for IQR-based outlier detection.}
+\item{iqr_multiplier}{Multiplier for IQR-based outlier detection
+(default 1.5).}
 
-\item{lower}{Optional custom lower probability limit.}
+\item{lower}{Optional custom lower probability limit. Give both \code{lower}
+and \code{upper} to replace the IQR rule.}
 
 \item{upper}{Optional custom upper probability limit.}
 
@@ -28,12 +31,58 @@ profile_outliers(
 "flag" (default), "remove", or "keep".}
 }
 \value{
-For action = "flag", a data frame of flagged scores.
-For "remove" or "keep", a list containing the selected labels,
-probabilities, detected outliers, and removed observation indices.
+For \code{action = "flag"}, a data frame with one row per flagged
+score: \code{observation} (row number), \code{actual_class}, \code{score_column},
+\code{score} and \code{reason}. An observation can appear more than once. For
+\code{"remove"} or \code{"keep"}, a list with \code{action}, \code{outliers} (that data
+frame), \code{truth} and \code{probs} (all rows for \code{"keep"}, the rows that were
+not flagged for \code{"remove"}) and \code{removed_observations}.
 }
 \description{
 Identifies unusual prediction probabilities using the IQR method
 and detects high-confidence incorrect predictions.
 Users can choose whether to flag, remove, or keep flagged observations.
+}
+\details{
+Each flagged score is given one of three reasons:
+\itemize{
+\item \code{"IQR outlier"}: the score is below Q1 - \code{iqr_multiplier} x IQR or above
+Q3 + \code{iqr_multiplier} x IQR, where the quartiles are calculated for each
+probability column over all observations.
+\item \code{"Outside custom limits"}: used instead of the IQR rule when \code{lower} and
+\code{upper} are given; the score is below \code{lower} or above \code{upper}.
+\item \code{"High-confidence wrong prediction"}: the most likely class is wrong and
+its probability is at least 0.90. This check needs the probability
+columns to be named after the class labels; otherwise it is skipped with
+a warning.
+}
+
+How to read IQR flags: the quartiles of a column are taken over all
+observations, most of which belong to other classes and have a low
+probability for that column. With four or more classes the upper limit is
+therefore usually close to 0, and confident correct predictions are
+flagged as \code{"IQR outlier"}. These flags mark scores that are unusual within
+their column, not wrong predictions; the \code{"High-confidence wrong prediction"} flags are the ones that point to errors.
+
+Missing values are not allowed; remove or fill them first.
+}
+\examples{
+fit <- nnet::multinom(Species ~ Sepal.Length + Sepal.Width,
+                      data = iris, trace = FALSE)
+probs <- predict(fit, type = "probs")
+
+flags <- profile_outliers(iris$Species, probs)
+table(flags$reason)
+
+# Custom limits instead of the IQR rule
+profile_outliers(iris$Species, probs, lower = 0.01, upper = 0.99)
+
+# Remove flagged rows and keep the rest
+cleaned <- profile_outliers(iris$Species, probs, action = "remove")
+length(cleaned$removed_observations)
+
+}
+\seealso{
+\code{\link[=profile_auc_influence]{profile_auc_influence()}} for how much each flagged observation
+changes the AUC.
 }

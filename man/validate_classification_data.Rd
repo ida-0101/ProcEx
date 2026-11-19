@@ -34,3 +34,39 @@ for multiclass analysis.
 Checks whether true class labels and predicted class probabilities
 are suitable for multiclass classification analysis.
 }
+\details{
+Problems that make the analysis impossible are reported as errors:
+missing or mismatched labels, probability columns that are not numeric or
+not named exactly as the observed classes, values that are missing,
+infinite or outside 0 to 1, and rows that do not sum to 1 (within 1e-6).
+Problems that make results less reliable are reported as warnings: a class
+with fewer than \code{min_class_n} observations, or a ratio between the largest
+and smallest class above \code{imbalance_ratio}.
+
+The \code{status} component summarises the result:
+\itemize{
+\item \code{"VALID"}: no errors or warnings.
+\item \code{"VALID_WITH_WARNINGS"}: usable, but see \code{warnings}.
+\item \code{"NOT_MULTICLASS"}: no errors, but fewer than 3 classes were observed.
+\item \code{"INVALID"}: at least one error; see \code{errors}.
+}
+
+\code{\link[=mc_roc]{mc_roc()}} and \code{\link[=mc_auc_compare]{mc_auc_compare()}} run these checks themselves: errors stop
+them and warnings are passed on.
+}
+\examples{
+fit <- nnet::multinom(Species ~ Sepal.Length + Sepal.Width,
+                      data = iris, trace = FALSE)
+probs <- predict(fit, type = "probs")
+
+checks <- validate_classification_data(iris$Species, probs)
+checks$status
+checks$class_counts
+
+# Rounded probabilities no longer sum to 1, which is reported as an error
+validate_classification_data(iris$Species, round(probs, 2))$errors
+
+}
+\seealso{
+\code{\link[=mc_roc]{mc_roc()}}, which runs these checks.
+}

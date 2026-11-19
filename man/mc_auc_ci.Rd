@@ -17,9 +17,10 @@ mc_auc_ci(
 \method{print}{mc_auc_ci}(x, ...)
 }
 \arguments{
-\item{truth}{True class labels.}
+\item{truth}{True class labels: a factor, character or integer vector.}
 
-\item{probabilities}{Matrix of predicted class probabilities.}
+\item{probabilities}{Matrix or data frame of predicted class
+probabilities, one column per class, named exactly as the class labels.}
 
 \item{n_boot}{Number of bootstrap replicates (default: 1000).}
 
@@ -58,6 +59,40 @@ Calculates AUC, bootstrap standard error, and a percentile
 confidence interval using stratified bootstrap resampling.
 }
 \details{
-For binary classification, the second class is treated as positive.
-For multiclass classification, Hand-Till AUC is used.
+For binary classification, the second class is treated as positive and
+the AUC is calculated with \code{\link[pROC:roc]{pROC::roc()}}. For three or more classes, the
+Hand & Till (2001) multiclass AUC is calculated with
+\code{\link[pROC:multiclass]{pROC::multiclass.roc()}}.
+
+Each bootstrap replicate resamples rows with replacement separately within
+each class, so every class keeps its original size, including a class with
+a single row. The confidence interval uses the percentiles of the
+successful bootstrap AUCs; a replicate whose AUC cannot be calculated is
+counted in \code{n_failed}.
+
+Missing values are not allowed; remove or fill them first, for example with
+\code{\link[=handle_missing]{handle_missing()}}. Probability column names must match the class labels.
+
+With \code{seed}, the result is reproducible and the caller's random-number
+stream is left as it was.
+}
+\examples{
+fit <- nnet::multinom(Species ~ Sepal.Length + Sepal.Width,
+                      data = iris, trace = FALSE)
+probs <- predict(fit, type = "probs")
+
+ci <- mc_auc_ci(iris$Species, probs, n_boot = 200, seed = 42)
+ci
+ci$lower_ci
+ci$upper_ci
+
+}
+\references{
+Hand, D. J. & Till, R. J. (2001). A simple generalisation of
+the area under the ROC curve for multiple class classification problems.
+Machine Learning, 45, 171-186.
+}
+\seealso{
+\code{\link[=mc_roc]{mc_roc()}} for the AUC and pairwise AUCs, \code{\link[=mc_auc_compare]{mc_auc_compare()}} to
+compare two models.
 }

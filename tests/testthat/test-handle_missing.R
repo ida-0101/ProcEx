@@ -11,11 +11,16 @@ test_that("remove method removes observations with missing probabilities", {
 
   class(x) <- "mc_roc"
 
-  expect_warning(
-    result <- handle_missing(x, method = "remove"),
-    "1 observation(s) containing missing values were removed",
-    fixed = TRUE
+  # handle_missing() reports what it did; the rebuilt object also repeats the
+  # small-class warning for this four-row example.
+  warnings <- testthat::capture_warnings(
+    result <- handle_missing(x, method = "remove")
   )
+  expect_true(any(grepl(
+    "1 observation(s) containing missing values were removed",
+    warnings,
+    fixed = TRUE
+  )))
 
   expect_equal(length(result$truth), 3)
   expect_equal(nrow(result$probs), 3)
@@ -46,11 +51,16 @@ test_that("mean method fills missing probability values", {
 
   class(x) <- "mc_roc"
 
-  expect_warning(
-    result <- handle_missing(x, method = "mean"),
-    "1 observation(s) had missing probability values filled using mean imputation.",
-    fixed = TRUE
+  # handle_missing() reports what it did; the rebuilt object also repeats the
+  # small-class warning for this four-row example.
+  warnings <- testthat::capture_warnings(
+    result <- handle_missing(x, method = "mean")
   )
+  expect_true(any(grepl(
+    "1 observation(s) had missing probability values filled using mean imputation.",
+    warnings,
+    fixed = TRUE
+  )))
 
   expect_equal(length(result$truth), 4)
   expect_equal(nrow(result$probs), 4)
@@ -86,11 +96,16 @@ test_that("median method fills missing probability values", {
 
   class(x) <- "mc_roc"
 
-  expect_warning(
-    result <- handle_missing(x, method = "median"),
-    "2 observation(s) had missing probability values filled using median imputation.",
-    fixed = TRUE
+  # handle_missing() reports what it did; the rebuilt object also repeats the
+  # small-class warning for this four-row example.
+  warnings <- testthat::capture_warnings(
+    result <- handle_missing(x, method = "median")
   )
+  expect_true(any(grepl(
+    "2 observation(s) had missing probability values filled using median imputation.",
+    warnings,
+    fixed = TRUE
+  )))
 
   expect_false(anyNA(result$probs))
 
@@ -126,11 +141,16 @@ test_that("missing true labels are removed instead of imputed", {
 
   class(x) <- "mc_roc"
 
-  expect_warning(
-    result <- handle_missing(x, method = "mean"),
-    "1 observation(s) with missing true class labels were removed.",
-    fixed = TRUE
+  # handle_missing() reports what it did; the rebuilt object also repeats the
+  # small-class warning for this four-row example.
+  warnings <- testthat::capture_warnings(
+    result <- handle_missing(x, method = "mean")
   )
+  expect_true(any(grepl(
+    "1 observation(s) with missing true class labels were removed.",
+    warnings,
+    fixed = TRUE
+  )))
 
   expect_equal(length(result$truth), 3)
   expect_equal(nrow(result$probs), 3)
@@ -246,4 +266,61 @@ test_that("truth and probs must have the same number of observations", {
     "x$truth and x$probs must contain the same number of observations.",
     fixed = TRUE
   )
+})
+
+
+test_that("after remove, the AUC and counts describe the cleaned data", {
+  d <- sim_mc(n = 300, k = 3, signal = 1.5, seed = 11)
+  p <- d$p
+  p[c(5, 50, 120), "b"] <- NA
+  keep <- !seq_len(300) %in% c(5, 50, 120)
+  fit <- suppressWarnings(mc_roc(d$y, p))
+
+  result <- suppressWarnings(handle_missing(fit, method = "remove"))
+
+  expect_equal(result$n, 297L)
+  expect_equal(result$n_used, 297L)
+  expect_length(result$complete, 297)
+  expect_equal(result$auc, mc_roc(d$y[keep], d$p[keep, ])$auc)
+  expect_equal(result$pairwise, mc_roc(d$y[keep], d$p[keep, ])$pairwise)
+  expect_equal(result$missing_info$n_removed, 3)
+
+  # The internal helpers can read the rebuilt object
+  expect_length(mc_data(result)$truth, 297)
+
+  # print() no longer reports rows as left out
+  out <- capture.output(print(result))
+  expect_false(any(grepl("left out", out)))
+  expect_true(any(grepl("handled by", out)))
+})
+
+test_that("after mean or median filling, the AUC describes the filled data", {
+  d <- sim_mc(n = 300, k = 3, signal = 1.5, seed = 12)
+  p <- d$p
+  p[c(5, 50, 120), "b"] <- NA
+  fit <- suppressWarnings(mc_roc(d$y, p))
+
+  for (method in c("mean", "median")) {
+    result <- suppressWarnings(handle_missing(fit, method = method))
+    expect_equal(result$n_used, 300L, info = method)
+    expect_equal(result$auc, mc_roc(result$truth, result$probs)$auc,
+                 info = method)
+    expect_equal(unname(rowSums(result$probs)), rep(1, 300), info = method)
+  }
+})
+
+test_that("removing rows that empty a class is a clear error", {
+  # mc_roc() already refuses such data, so build the object by hand
+  x <- list(
+    truth = factor(c("A", "B", "C", "A", "B")),
+    probs = data.frame(
+      A = c(0.8, 0.1, NA, 0.7, 0.2),
+      B = c(0.1, 0.8, 0.2, 0.2, 0.7),
+      C = c(0.1, 0.1, 0.7, 0.1, 0.1)
+    )
+  )
+  class(x) <- "mc_roc"
+
+  expect_error(suppressWarnings(handle_missing(x, method = "remove")),
+               "no observations for class\\(es\\): C")
 })

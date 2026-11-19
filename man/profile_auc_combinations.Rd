@@ -15,24 +15,50 @@ profile_auc_combinations(
 )
 }
 \arguments{
-\item{truth}{Actual class labels.}
+\item{truth}{True class labels: a factor, character or integer vector.}
 
-\item{probs}{Predicted class probabilities.}
+\item{probs}{Predicted class probabilities (matrix or data frame), one
+column per class, named exactly as the class labels.}
 
-\item{top_n}{Number of top observations to combine.}
+\item{top_n}{Number of most influential observations to combine, a whole
+number from 1 to 10 (default 5).}
 
-\item{warn_threshold}{Warning threshold for flagged observations.}
+\item{warn_threshold}{Warn when more than this many observations are
+flagged, because the influence step may then be slow (default 100).}
 
-\item{iqr_multiplier}{IQR multiplier.}
+\item{iqr_multiplier}{Multiplier for IQR-based outlier detection.}
 
-\item{lower}{Optional lower probability limit.}
+\item{lower}{Optional custom lower probability limit.}
 
-\item{upper}{Optional upper probability limit.}
+\item{upper}{Optional custom upper probability limit.}
 }
 \value{
-Individual and combined influence results.
+A list with \code{individual} (the \code{\link[=profile_auc_influence]{profile_auc_influence()}} result),
+\code{combinations} (a data frame with \code{observations}, \code{combination_size},
+\code{original_auc}, \code{auc_without} and \code{auc_change}, sorted by the size of the
+change), \code{selected_observations}, \code{flagged_count} and \code{original_auc}.
 }
 \description{
 Selects the top influential observations and checks
 all possible combinations using Hand-Till AUC.
+}
+\details{
+The influence of each flagged observation is first calculated with
+\code{\link[=profile_auc_influence]{profile_auc_influence()}}. The \code{top_n} observations with the largest
+absolute change are then removed in every possible combination (for
+\code{top_n = 5}, 31 combinations) and the AUC is recalculated each time.
+Combinations that would leave a class empty are skipped.
+}
+\examples{
+fit <- nnet::multinom(Species ~ Sepal.Length + Sepal.Width,
+                      data = iris, trace = FALSE)
+probs <- predict(fit, type = "probs")
+
+combos <- profile_auc_combinations(iris$Species, probs, top_n = 3)
+combos$selected_observations
+head(combos$combinations)
+
+}
+\seealso{
+\code{\link[=profile_auc_influence]{profile_auc_influence()}}, \code{\link[=profile_outliers]{profile_outliers()}}
 }

@@ -10,21 +10,56 @@ handle_missing(x, method = c("remove", "mean", "median"))
 \item{x}{An object of class \code{mc_roc}.}
 
 \item{method}{Method used to handle missing values. One of
-\code{"remove"}, \code{"mean"}, or \code{"median"}.}
+\code{"remove"} (default), \code{"mean"}, or \code{"median"}.}
 }
 \value{
-An updated \code{mc_roc} object containing the cleaned data and
-information about the missing observations.
+An updated \code{mc_roc} object built from the cleaned data. Its
+\code{missing_info} component is a list with \code{n_affected} (rows with any
+missing value), \code{pct_affected} (their percentage), \code{n_removed},
+\code{n_imputed} and \code{method}. If there are no missing values, \code{x} is
+returned unchanged apart from \code{missing_info}.
 }
 \description{
-Detects observations affected by missing values in an \code{mc_roc} object.
-Missing observations can either be removed or missing prediction values
-can be filled using a selected method.
+Detects observations affected by missing values in an \code{mc_roc} object,
+then either removes them or fills the missing probabilities, and
+recalculates the AUC on the cleaned data.
 }
 \details{
-Missing true class labels are not imputed because this would require
-guessing the observed class. These observations are removed.
+\code{\link[=mc_roc]{mc_roc()}} keeps rows with missing values in the object but leaves them
+out of the AUC. \code{handle_missing()} decides what happens to those rows:
+\itemize{
+\item \code{"remove"} drops every row with a missing label or a missing
+probability.
+\item \code{"mean"} and \code{"median"} drop rows with a missing label (a true class
+cannot be guessed), then fill each missing probability with the mean or
+median of the observed values in its column. Each filled row is then
+divided by its total so that it sums to 1 again.
+}
 
-The function also reports the number and percentage of observations
-affected by missing values.
+After cleaning, the object is rebuilt: the AUC, the pairwise AUCs, the
+class counts and the row counts (\code{n}, \code{n_used}) all describe the cleaned
+data. A warning reports how many rows were removed or filled, and the
+\code{missing_info} component records the details. If removing rows would
+leave a class with no observations, the function stops with an error.
+}
+\examples{
+set.seed(1)
+truth  <- factor(sample(c("a", "b", "c"), 150, replace = TRUE))
+scores <- matrix(stats::rnorm(450), 150, 3) +
+  1.5 * outer(as.integer(truth), 1:3, "==")
+probs  <- exp(scores) / rowSums(exp(scores))
+colnames(probs) <- levels(truth)
+probs[c(4, 20, 77), "b"] <- NA
+
+fit <- mc_roc(truth, probs)            # warns: 3 rows left out of the AUC
+cleaned <- handle_missing(fit, "remove")
+cleaned$auc
+cleaned$missing_info
+
+filled <- handle_missing(fit, "median")
+filled$n_used                            # all 150 rows are used
+
+}
+\seealso{
+\code{\link[=mc_roc]{mc_roc()}}
 }
