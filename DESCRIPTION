@@ -1,6 +1,6 @@
 Package: ProcEx
 Title: Multiclass ROC, AUC, and Reliability Analysis
-Version: 0.0.0.9000
+Version: 0.0.0.9001
 Authors@R:
     c(
       person("Kalyan", "Badavath",
@@ -28,8 +28,10 @@ Authors@R:
       person("Adelaide University",
              role = "cph")
     )
-Description: Tools for evaluating multiclass classification models using ROC analysis, Hand-Till multiclass AUC, bootstrap confidence intervals, model comparison, data validation, missing-value handling, and prediction outlier detection.
+Description: Tools for evaluating multiclass classification models using ROC analysis, Hand-Till multiclass AUC, bootstrap confidence intervals, model comparison, plots of pairwise ROC curves and AUCs, data validation, missing-value handling, and prediction outlier detection.
 License: MIT + file LICENSE
+URL: https://github.com/Kalyan-Badavath/ProcEx
+BugReports: https://github.com/Kalyan-Badavath/ProcEx/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Config/roxygen2/version: 8.1.0
@@ -40,6 +42,9 @@ Imports:
     stats,
     utils
 Suggests:
+    knitr,
     nnet,
+    rmarkdown,
     testthat (>= 3.0.0)
+VignetteBuilder: knitr
 Config/testthat/edition: 3

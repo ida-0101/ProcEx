@@ -336,7 +336,8 @@ mc_refit <- function(x, ...) {
 # Reads the result list of mc_auc_ci() stored in x$boot.
 .mc_fmt_ci <- function(boot, digits) {
   if (is.null(boot) || is.null(boot$lower_ci)) {
-    return("  (no CI yet: run mc_auc_ci())")
+    # mc_auc_ci() returns its own result and does not fill x$boot.
+    return("  (for a confidence interval, use mc_auc_ci())")
   }
   lvl <- if (is.null(boot$conf_level)) "" else
     paste0(round(100 * boot$conf_level), "% ")
