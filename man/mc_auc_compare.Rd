@@ -63,6 +63,10 @@ An object of class \code{mc_auc_compare}, a list containing:
 \item{n_boot}{bootstrap replicates requested}
 \item{n_successful, n_failed}{successful and failed replicates}
 \item{bootstrap_values}{the successful bootstrap differences}
+\item{pairwise}{data frame, one row per class pair: pair, class1,
+class2, auc1, auc2 and difference, from the observed data (no
+intervals), or \code{NULL} if the probability columns are not named
+after the classes. Used by \code{plot(type = "pairs")}.}
 
 The component names follow \code{\link[=mc_auc_ci]{mc_auc_ci()}}, so the interval, standard
 error and replicate counts are read the same way from both results.
@@ -87,5 +91,6 @@ mc_auc_compare(iris$Species,
 
 }
 \seealso{
-\code{\link[=mc_auc_ci]{mc_auc_ci()}} for one model, \code{\link[=mc_roc]{mc_roc()}} to build the object.
+\code{\link[=mc_auc_ci]{mc_auc_ci()}} for one model, \code{\link[=mc_roc]{mc_roc()}} to build the object,
+\code{\link[=plot.mc_auc_compare]{plot.mc_auc_compare()}} to plot the result.
 }

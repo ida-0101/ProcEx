@@ -12,9 +12,9 @@
 #'
 #' Computes the Hand & Till (2001) multiclass AUC with
 #' [pROC::multiclass.roc()] and stores everything the other ProcEx functions
-#' need in a single `mc_roc` object. Every other function
-#' ([handle_missing()], `mc_auc_ci()`, `mc_auc_compare()`, `plot()`) receives
-#' this object.
+#' need in a single `mc_roc` object. [handle_missing()],
+#' [mc_auc_compare()] and [plot()][plot.mc_roc] accept this object;
+#' [mc_auc_ci()] takes the labels and probabilities directly.
 #'
 #' @details
 #' The inputs are checked in two stages. `mc_roc()` first checks that it can
@@ -59,10 +59,10 @@
 #'   \item{checks}{list returned by [validate_classification_data()] for the
 #'     rows used}
 #'   \item{missing_info}{NULL; filled by [handle_missing()]}
-#'   \item{boot}{NULL; filled by `mc_auc_ci()` with its result list
-#'     (`original_auc`, `standard_error`, `lower_ci`, `upper_ci`,
-#'     `conf_level`, `n_boot`, `n_successful`, `n_failed`,
-#'     `bootstrap_values`)}
+#'   \item{boot}{NULL; reserved for a stored bootstrap result with the same
+#'     components as [mc_auc_ci()] (`original_auc`, `standard_error`,
+#'     `lower_ci`, `upper_ci`, `conf_level`, `n_boot`, `n_successful`,
+#'     `n_failed`, `bootstrap_values`). Not filled by any function yet.}
 #'   \item{pROC_version}{character, for reproducibility}
 #' }
 #'

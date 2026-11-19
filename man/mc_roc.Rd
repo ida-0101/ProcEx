@@ -42,9 +42,9 @@ An object of class \code{mc_roc}; see the "Object structure" section.
 \description{
 Computes the Hand & Till (2001) multiclass AUC with
 \code{\link[pROC:multiclass]{pROC::multiclass.roc()}} and stores everything the other ProcEx functions
-need in a single \code{mc_roc} object. Every other function
-(\code{\link[=handle_missing]{handle_missing()}}, \code{mc_auc_ci()}, \code{mc_auc_compare()}, \code{plot()}) receives
-this object.
+need in a single \code{mc_roc} object. \code{\link[=handle_missing]{handle_missing()}},
+\code{\link[=mc_auc_compare]{mc_auc_compare()}} and \link[=plot.mc_roc]{plot()} accept this object;
+\code{\link[=mc_auc_ci]{mc_auc_ci()}} takes the labels and probabilities directly.
 }
 \details{
 The inputs are checked in two stages. \code{mc_roc()} first checks that it can
@@ -77,10 +77,10 @@ pair ("a vs b") and each pair's two curves are named "a|b" and "b|a"}
 \item{checks}{list returned by \code{\link[=validate_classification_data]{validate_classification_data()}} for the
 rows used}
 \item{missing_info}{NULL; filled by \code{\link[=handle_missing]{handle_missing()}}}
-\item{boot}{NULL; filled by \code{mc_auc_ci()} with its result list
-(\code{original_auc}, \code{standard_error}, \code{lower_ci}, \code{upper_ci},
-\code{conf_level}, \code{n_boot}, \code{n_successful}, \code{n_failed},
-\code{bootstrap_values})}
+\item{boot}{NULL; reserved for a stored bootstrap result with the same
+components as \code{\link[=mc_auc_ci]{mc_auc_ci()}} (\code{original_auc}, \code{standard_error},
+\code{lower_ci}, \code{upper_ci}, \code{conf_level}, \code{n_boot}, \code{n_successful},
+\code{n_failed}, \code{bootstrap_values}). Not filled by any function yet.}
 \item{pROC_version}{character, for reproducibility}
 }
 }

@@ -39,6 +39,10 @@
 #'   \item{n_boot}{bootstrap replicates requested}
 #'   \item{n_successful, n_failed}{successful and failed replicates}
 #'   \item{bootstrap_values}{the successful bootstrap differences}
+#'   \item{pairwise}{data frame, one row per class pair: pair, class1,
+#'     class2, auc1, auc2 and difference, from the observed data (no
+#'     intervals), or `NULL` if the probability columns are not named
+#'     after the classes. Used by `plot(type = "pairs")`.}
 #'
 #'   The component names follow [mc_auc_ci()], so the interval, standard
 #'   error and replicate counts are read the same way from both results.
@@ -56,7 +60,8 @@
 #'                n_boot = 100, seed = 42)
 #' }
 #'
-#' @seealso [mc_auc_ci()] for one model, [mc_roc()] to build the object.
+#' @seealso [mc_auc_ci()] for one model, [mc_roc()] to build the object,
+#'   [plot.mc_auc_compare()] to plot the result.
 #' @export
 mc_auc_compare <- function(truth,
                            probs1,
@@ -118,6 +123,9 @@ mc_auc_compare <- function(truth,
 
   auc1 <- auc_of(truth, probs1)
   auc2 <- auc_of(truth, probs2)
+  # Per-pair AUCs are only for plotting; never let them stop the comparison.
+  pairwise <- tryCatch(.mc_compare_pairwise(truth, probs1, probs2, levels),
+                       error = function(e) NULL)
 
   class_rows <- split(seq_along(truth), truth, drop = TRUE)
   boot_differences <- rep(NA_real_, n_boot)
@@ -167,9 +175,40 @@ mc_auc_compare <- function(truth,
          n_boot           = n_boot,
          n_successful     = n_ok,
          n_failed         = n_failed,
-         bootstrap_values = ok),
+         bootstrap_values = ok,
+         pairwise         = pairwise),
     class = "mc_auc_compare"
   )
+}
+
+# Per-pair Hand & Till AUCs of both models on the observed data, for
+# plot(type = "pairs"). Each pair's AUC is the mean of its two curves, so the
+# mean over pairs equals the overall AUC.
+.mc_compare_pairwise <- function(truth, probs1, probs2, levels) {
+  present <- levels[levels %in% as.character(truth)]
+  pairs   <- utils::combn(present, 2)
+
+  named <- function(p) !is.null(colnames(p)) && all(present %in% colnames(p))
+  if (length(present) < 3 || !named(probs1) || !named(probs2)) return(NULL)
+
+  pair_auc <- function(p) {
+    p <- p[, present, drop = FALSE]  # pROC takes pair order from columns
+    roc <- suppressMessages(pROC::multiclass.roc(truth, p, levels = present))
+    expected <- paste(pairs[1, ], pairs[2, ], sep = "/")
+    if (!identical(names(roc$rocs), expected)) {
+      stop("pROC returned class pairs in an unexpected order.", call. = FALSE)
+    }
+    vapply(roc$rocs, function(r) {
+      mean(c(as.numeric(pROC::auc(r[[1]])), as.numeric(pROC::auc(r[[2]]))))
+    }, numeric(1))
+  }
+
+  a1 <- unname(pair_auc(probs1))
+  a2 <- unname(pair_auc(probs2))
+  data.frame(pair = paste(pairs[1, ], "vs", pairs[2, ]),
+             class1 = pairs[1, ], class2 = pairs[2, ],
+             auc1 = a1, auc2 = a2, difference = a1 - a2,
+             stringsAsFactors = FALSE)
 }
 
 

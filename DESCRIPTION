@@ -34,6 +34,8 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Config/roxygen2/version: 8.1.0
 Imports:
+    graphics,
+    grDevices,
     pROC,
     stats,
     utils

@@ -54,7 +54,8 @@ test_that("returns a well-formed mc_auc_compare object", {
   expect_s3_class(res, "mc_auc_compare")
   expect_named(res, c("auc1", "auc2", "difference", "lower_ci", "upper_ci",
                       "standard_error", "p_value", "conf_level", "n_boot",
-                      "n_successful", "n_failed", "bootstrap_values"))
+                      "n_successful", "n_failed", "bootstrap_values",
+                      "pairwise"))
   expect_equal(res$n_boot, 100)
   expect_equal(res$n_successful + res$n_failed, 100)
   expect_length(res$bootstrap_values, res$n_successful)
