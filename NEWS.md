@@ -15,11 +15,19 @@
   Code that reads the old names, such as `res$lower`, needs updating. The
   calculation itself is unchanged.
 
+* `mc_auc_ci()`: the argument `probabilities` is now `probs`, the name every
+  other function uses. Calls such as `mc_auc_ci(truth, probabilities = p)`
+  need to become `mc_auc_ci(truth, probs = p)`; calls that pass the
+  probabilities by position, such as `mc_auc_ci(truth, p)`, are unaffected.
+  Nothing else in the function changed.
+
 ## New features
 
 * `plot()` for `mc_roc` objects: ROC curves for every pair of classes
   (`type = "pairs"`), or a heatmap of the pairwise AUCs
   (`type = "heatmap"`). pROC has no plot method for multiclass objects.
+* `plot()` for `mc_auc_ci()` results: a histogram of the bootstrap AUCs with
+  the confidence interval shaded and the original AUC marked.
 * `plot()` for `mc_auc_compare()` results: the bootstrap distribution of the
   AUC difference (`type = "bootstrap"`), or each class pair's AUC under both
   models (`type = "pairs"`).
@@ -29,7 +37,8 @@
 
 ## Documentation and packaging
 
-* README: plotting section, updated comparison section and test results.
+* README: plotting section, updated comparison and confidence interval
+  sections, and test results.
 * The Dry Bean zip in `inst/extdata` (4.6 MB, not used by any code) is
   excluded from the built package. The previous `.Rbuildignore` entry did
   not match its location.
@@ -46,7 +55,8 @@
   correct predictions (77% of Dry Bean test rows), and
   `profile_auc_influence()` and `profile_auc_combinations()` start from
   these flags.
-* `mc_auc_ci()` gives a wrong interval when a class has a single row.
+* `mc_auc_ci()` gives a wrong interval when a class has a single row, and
+  its `seed` argument resets the caller's random-number stream.
 * `mc_auc_compare()` does not run the input checks that `mc_roc()` runs,
   passes missing values to pROC (which drops them separately for each pair
   of classes, without a warning), and its `seed` argument resets the

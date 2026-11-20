@@ -1,5 +1,6 @@
-# Tests for plot.mc_roc(), plot.mc_auc_compare() and the per-pair AUCs that
-# mc_auc_compare() stores for plotting. sim_mc() comes from helper-sim.R.
+# Tests for plot.mc_roc(), plot.mc_auc_ci(), plot.mc_auc_compare() and the
+# per-pair AUCs that mc_auc_compare() stores for plotting. sim_mc() comes
+# from helper-sim.R.
 
 # Draw to a throwaway device so tests leave no files behind.
 draw <- function(expr) {
@@ -184,4 +185,46 @@ test_that("plot.mc_auc_compare rejects bad input", {
   draw(expect_invisible(plot(old)))   # the bootstrap view still works
 
   expect_error(plot.mc_auc_compare(list()), "mc_auc_compare")
+})
+
+
+# plot.mc_auc_ci
+
+test_that("plot.mc_auc_ci draws the bootstrap AUCs and returns invisibly", {
+  m <- iris_models()
+  ci <- mc_auc_ci(m$truth, m$weak, n_boot = 50, seed = 1)
+
+  draw(expect_invisible(plot(ci)))
+  draw(expect_identical(plot(ci), ci))
+  draw(expect_invisible(plot(ci, main = "Sepal model")))
+})
+
+test_that("plot.mc_auc_ci works for a binary result", {
+  set.seed(3)
+  y <- factor(rep(c("no", "yes"), each = 40))
+  p <- c(stats::runif(40, 0, 0.6), stats::runif(40, 0.4, 1))
+  ci <- mc_auc_ci(y, cbind(no = 1 - p, yes = p), n_boot = 40, seed = 1)
+
+  draw(expect_invisible(plot(ci)))
+})
+
+test_that("plot.mc_auc_ci restores the user's graphics settings", {
+  m <- iris_models()
+  ci <- mc_auc_ci(m$truth, m$weak, n_boot = 30, seed = 1)
+
+  draw({
+    before <- graphics::par(c("mfrow", "mar", "oma"))
+    plot(ci)
+    expect_identical(graphics::par(c("mfrow", "mar", "oma")), before)
+  })
+})
+
+test_that("plot.mc_auc_ci rejects bad input", {
+  m <- iris_models()
+  ci <- mc_auc_ci(m$truth, m$weak, n_boot = 30, seed = 1)
+
+  expect_error(plot.mc_auc_ci(list()), "mc_auc_ci")
+  one <- ci
+  one$bootstrap_values <- one$bootstrap_values[1]
+  draw(expect_error(plot(one), "fewer than two bootstrap values"))
 })

@@ -1,4 +1,5 @@
-# Plot methods for mc_roc and mc_auc_compare objects, using base graphics.
+# Plot methods for mc_roc, mc_auc_ci and mc_auc_compare objects, using base
+# graphics.
 
 # Colours used by the plots.
 .mc_col <- list(
@@ -456,4 +457,88 @@ plot.mc_auc_compare <- function(x, type = c("bootstrap", "pairs"),
                    col = "#ffffff", text.col = .mc_col$ink,
                    legend = sprintf("%s (overall %.3f)", labels,
                                     c(x$auc1, x$auc2)))
+}
+
+#' Plot a bootstrap confidence interval for the AUC
+#'
+#' Shows the result of [mc_auc_ci()] as a histogram of the bootstrap AUCs,
+#' with the confidence interval shaded and the AUC of the original data
+#' marked.
+#'
+#' @details
+#' Each bar counts the bootstrap samples whose AUC fell in that range. The
+#' shaded band is the percentile confidence interval reported by
+#' [mc_auc_ci()], and the solid line is the AUC of the original data. A wide
+#' band means the AUC would change a lot with a different sample of rows.
+#'
+#' @param x An `mc_auc_ci` object from [mc_auc_ci()].
+#' @param main Optional title.
+#' @param ... Ignored.
+#'
+#' @return `x`, invisibly.
+#'
+#' @examples
+#' set.seed(1)
+#' truth  <- factor(sample(c("a", "b", "c"), 150, replace = TRUE))
+#' scores <- matrix(stats::rnorm(450), 150, 3) +
+#'   1.5 * outer(as.integer(truth), 1:3, "==")
+#' probs  <- exp(scores) / rowSums(exp(scores))
+#' colnames(probs) <- levels(truth)
+#'
+#' ci <- mc_auc_ci(truth, probs, n_boot = 200, seed = 1)
+#' plot(ci)
+#'
+#' @seealso [mc_auc_ci()]
+#' @export
+plot.mc_auc_ci <- function(x, main = NULL, ...) {
+  if (!inherits(x, "mc_auc_ci")) {
+    stop("x must be an object of class 'mc_auc_ci'.", call. = FALSE)
+  }
+  v <- x$bootstrap_values
+  if (length(v) < 2) {
+    stop("x has fewer than two bootstrap values to plot.", call. = FALSE)
+  }
+  if (is.null(main)) {
+    main <- sprintf("AUC %.3f (%.0f%% CI %.3f to %.3f)", x$original_auc,
+                    x$conf_level * 100, x$lower_ci, x$upper_ci)
+  }
+
+  rng <- range(c(v, x$original_auc, x$lower_ci, x$upper_ci))
+  pad <- if (diff(rng) > 0) diff(rng) * 0.08 else 0.01
+  xlim <- rng + c(-pad, pad)
+  breaks <- if (diff(range(v)) > 0) {
+    seq(min(v), max(v), length.out = min(40, max(10, ceiling(sqrt(length(v))))))
+  } else {
+    c(v[1] - pad / 4, v[1] + pad / 4)
+  }
+  h <- graphics::hist(v, breaks = breaks, plot = FALSE)
+
+  old <- graphics::par(no.readonly = TRUE)
+  on.exit(graphics::par(old), add = TRUE)
+  graphics::par(mar = c(4.2, 4.2, 3.2, 1), las = 1, mgp = c(2.6, 0.6, 0),
+                tcl = -0.25, col.axis = .mc_col$ink2, cex.axis = 0.85)
+
+  ymax <- max(h$counts) * 1.18
+  graphics::plot.new()
+  graphics::plot.window(xlim = xlim, ylim = c(0, ymax), yaxs = "i")
+  graphics::abline(h = pretty(c(0, ymax)), col = .mc_col$grid)
+  graphics::rect(x$lower_ci, 0, x$upper_ci, ymax, col = .mc_col$band,
+                 border = NA)
+  graphics::rect(h$breaks[-length(h$breaks)], 0, h$breaks[-1], h$counts,
+                 col = .mc_col$model1, border = "#ffffff", lwd = 1)
+  graphics::abline(v = x$original_auc, col = .mc_col$ink, lwd = 2)
+
+  graphics::axis(1, col = .mc_col$muted, col.ticks = .mc_col$muted)
+  graphics::axis(2, col = NA, col.ticks = NA)
+  graphics::title(xlab = "Bootstrap AUC", ylab = "Bootstrap replicates",
+                  col.lab = .mc_col$ink2)
+  graphics::title(main = main, cex.main = 0.95, col.main = .mc_col$ink,
+                  line = 1.2)
+  graphics::legend("topleft", bty = "n", cex = 0.8, inset = c(0.01, 0),
+                   legend = c("AUC of the original data",
+                              sprintf("%.0f%% interval", x$conf_level * 100)),
+                   col = c(.mc_col$ink, .mc_col$band), lty = c(1, NA),
+                   lwd = c(2, NA), pch = c(NA, 15), pt.cex = 2,
+                   text.col = .mc_col$ink)
+  invisible(x)
 }

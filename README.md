@@ -64,6 +64,7 @@ ProcEx provides six main user-facing functions:
 Results can be plotted:
 
 - `plot()` on an `mc_roc` object – ROC curves for every pair of classes, or a heatmap of the pairwise AUCs.
+- `plot()` on an `mc_auc_ci` result – the bootstrap AUCs, with the confidence interval shaded.
 - `plot()` on an `mc_auc_compare` result – the bootstrap distribution of the AUC difference, or each class pair's AUC under both models.
 
 Additional exported utilities are available for investigating the influence of unusual observations on multiclass AUC.
@@ -303,7 +304,7 @@ The function calculates the original AUC, bootstrap standard error, and percenti
 ```r
 ci_result <- mc_auc_ci(
   truth = truth_test,
-  probabilities = probs1,
+  probs = probs1,
   n_boot = 200,
   conf_level = 0.95,
   seed = 42
@@ -321,6 +322,12 @@ ci_result$n_successful
 ci_result$n_failed
 ```
 
+Plot the bootstrap AUCs, with the confidence interval shaded and the AUC of the original data marked:
+
+```r
+plot(ci_result)
+```
+
 Users can control the number of bootstrap replicates, confidence level, and random seed.
 
 The function also supports the `show_bootstrap_values` parameter.
@@ -330,7 +337,7 @@ For example:
 ```r
 ci_result <- mc_auc_ci(
   truth = truth_test,
-  probabilities = probs1,
+  probs = probs1,
   n_boot = 200,
   conf_level = 0.95,
   seed = 42,
@@ -435,7 +442,7 @@ ProcEx is developed as a structured R package with source code, function documen
 
 Automated tests are implemented using `testthat`.
 
-For version 0.0.0.9001, the package test run produced 130 tests with 844 passing expectations, with zero failures, zero warnings, and zero skipped tests.
+For version 0.0.0.9001, the package test run produced 134 tests with 851 passing expectations, with zero failures, zero warnings, and zero skipped tests.
 
 The recorded R CMD check, including building the vignette, also completed with zero errors, zero warnings, and zero notes.
 

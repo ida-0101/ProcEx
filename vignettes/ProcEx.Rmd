@@ -119,6 +119,13 @@ ci <- mc_auc_ci(truth, sepals, n_boot = 200, seed = 1)
 ci
 ```
 
+The histogram shows the bootstrap AUCs; the shaded band is the confidence
+interval and the solid line is the AUC of the original data.
+
+```{r ci-plot, fig.height = 3.4}
+plot(ci)
+```
+
 ## 5. Compare two models
 
 `mc_auc_compare()` asks whether the petal model is really better than the
