@@ -1,67 +1,21 @@
+
 #' Profile multiclass prediction outliers
 #'
 #' Identifies unusual prediction probabilities using the IQR method
 #' and detects high-confidence incorrect predictions.
 #' Users can choose whether to flag, remove, or keep flagged observations.
 #'
-#' @details
-#' Each flagged score is given one of three reasons:
-#'
-#' * `"IQR outlier"`: the score is below Q1 - `iqr_multiplier` x IQR or above
-#'   Q3 + `iqr_multiplier` x IQR, where the quartiles are calculated for each
-#'   probability column over all observations.
-#' * `"Outside custom limits"`: used instead of the IQR rule when `lower` and
-#'   `upper` are given; the score is below `lower` or above `upper`.
-#' * `"High-confidence wrong prediction"`: the most likely class is wrong and
-#'   its probability is at least 0.90. This check needs the probability
-#'   columns to be named after the class labels; otherwise it is skipped with
-#'   a warning.
-#'
-#' How to read IQR flags: the quartiles of a column are taken over all
-#' observations, most of which belong to other classes and have a low
-#' probability for that column. With four or more classes the upper limit is
-#' therefore usually close to 0, and confident correct predictions are
-#' flagged as `"IQR outlier"`. These flags mark scores that are unusual within
-#' their column, not wrong predictions; the `"High-confidence wrong
-#' prediction"` flags are the ones that point to errors.
-#'
-#' Missing values are not allowed; remove or fill them first.
-#'
-#' @param truth True class labels: a factor, character or integer vector.
-#' @param probs Predicted class probabilities (matrix or data frame), one
-#'   column per class.
-#' @param iqr_multiplier Multiplier for IQR-based outlier detection
-#'   (default 1.5).
-#' @param lower Optional custom lower probability limit. Give both `lower`
-#'   and `upper` to replace the IQR rule.
+#' @param truth True class labels (factor or character).
+#' @param probs Predicted class probabilities (matrix or data frame).
+#' @param iqr_multiplier Multiplier for IQR-based outlier detection.
+#' @param lower Optional custom lower probability limit.
 #' @param upper Optional custom upper probability limit.
 #' @param action What to do with flagged observations:
 #'   "flag" (default), "remove", or "keep".
 #'
-#' @return For `action = "flag"`, a data frame with one row per flagged
-#'   score: `observation` (row number), `actual_class`, `score_column`,
-#'   `score` and `reason`. An observation can appear more than once. For
-#'   `"remove"` or `"keep"`, a list with `action`, `outliers` (that data
-#'   frame), `truth` and `probs` (all rows for `"keep"`, the rows that were
-#'   not flagged for `"remove"`) and `removed_observations`.
-#'
-#' @examples
-#' fit <- nnet::multinom(Species ~ Sepal.Length + Sepal.Width,
-#'                       data = iris, trace = FALSE)
-#' probs <- predict(fit, type = "probs")
-#'
-#' flags <- profile_outliers(iris$Species, probs)
-#' table(flags$reason)
-#'
-#' # Custom limits instead of the IQR rule
-#' profile_outliers(iris$Species, probs, lower = 0.01, upper = 0.99)
-#'
-#' # Remove flagged rows and keep the rest
-#' cleaned <- profile_outliers(iris$Species, probs, action = "remove")
-#' length(cleaned$removed_observations)
-#'
-#' @seealso [profile_auc_influence()] for how much each flagged observation
-#'   changes the AUC.
+#' @return For action = "flag", a data frame of flagged scores.
+#'   For "remove" or "keep", a list containing the selected labels,
+#'   probabilities, detected outliers, and removed observation indices.
 #' @export
 profile_outliers <- function(truth, probs,
                              iqr_multiplier = 1.5,
@@ -72,9 +26,8 @@ profile_outliers <- function(truth, probs,
   action <- match.arg(action, c("flag", "remove", "keep"))
 
   # Validate actual class labels
-  if (!is.null(dim(truth)) ||
-      !(is.factor(truth) || is.character(truth) || is.numeric(truth))) {
-    stop("truth must be a factor, character or integer vector.")
+  if (!is.factor(truth) && !is.character(truth)) {
+    stop("truth must be a factor or character vector.")
   }
 
   # Validate prediction scores
@@ -207,13 +160,6 @@ profile_outliers <- function(truth, probs,
         )
       )
     }
-  } else {
-    warning(
-      paste(
-        "Probability column names do not match the class labels, so",
-        "high-confidence wrong predictions were not checked."
-      )
-    )
   }
 
   # Default action: only display flagged observations
@@ -255,37 +201,16 @@ profile_outliers <- function(truth, probs,
 #' Hand-Till multiclass AUC changes when each observation is
 #' temporarily excluded, one at a time.
 #'
-#' @details
-#' Observations are flagged with [profile_outliers()] using the same
-#' settings; see its help page for how the flags are chosen. For each flagged
-#' observation the AUC is recalculated without it. An observation whose
-#' removal would leave a class empty is skipped. The original data are not
-#' modified.
+#' The original dataset is not modified.
 #'
-#' The AUC is recalculated once per flagged observation, so the time taken
-#' grows with both the number of flags and the number of rows.
-#'
-#' @param truth True class labels: a factor, character or integer vector.
-#' @param probs Predicted class probabilities (matrix or data frame), one
-#'   column per class, named exactly as the class labels.
+#' @param truth True class labels.
+#' @param probs Predicted class probabilities.
 #' @param iqr_multiplier Multiplier for IQR-based outlier detection.
 #' @param lower Optional custom lower probability limit.
 #' @param upper Optional custom upper probability limit.
 #'
-#' @return A data frame with one row per evaluated observation, sorted by the
-#'   size of the change: `observation`, `actual_class`, `original_auc`,
-#'   `auc_without` (AUC without that observation) and `auc_change`
-#'   (`auc_without - original_auc`).
-#'
-#' @examples
-#' fit <- nnet::multinom(Species ~ Sepal.Length + Sepal.Width,
-#'                       data = iris, trace = FALSE)
-#' probs <- predict(fit, type = "probs")
-#'
-#' influence <- profile_auc_influence(iris$Species, probs)
-#' head(influence)
-#'
-#' @seealso [profile_outliers()], [profile_auc_combinations()]
+#' @return A data frame containing observation, actual_class,
+#'   original_auc, auc_without, and auc_change.
 #' @export
 profile_auc_influence <- function(truth, probs,
                                   iqr_multiplier = 1.5,
@@ -379,39 +304,14 @@ profile_auc_influence <- function(truth, probs,
 #' Selects the top influential observations and checks
 #' all possible combinations using Hand-Till AUC.
 #'
-#' @details
-#' The influence of each flagged observation is first calculated with
-#' [profile_auc_influence()]. The `top_n` observations with the largest
-#' absolute change are then removed in every possible combination (for
-#' `top_n = 5`, 31 combinations) and the AUC is recalculated each time.
-#' Combinations that would leave a class empty are skipped.
-#'
-#' @param truth True class labels: a factor, character or integer vector.
-#' @param probs Predicted class probabilities (matrix or data frame), one
-#'   column per class, named exactly as the class labels.
-#' @param top_n Number of most influential observations to combine, a whole
-#'   number from 1 to 10 (default 5).
-#' @param warn_threshold Warn when more than this many observations are
-#'   flagged, because the influence step may then be slow (default 100).
-#' @param iqr_multiplier Multiplier for IQR-based outlier detection.
-#' @param lower Optional custom lower probability limit.
-#' @param upper Optional custom upper probability limit.
-#'
-#' @return A list with `individual` (the [profile_auc_influence()] result),
-#'   `combinations` (a data frame with `observations`, `combination_size`,
-#'   `original_auc`, `auc_without` and `auc_change`, sorted by the size of the
-#'   change), `selected_observations`, `flagged_count` and `original_auc`.
-#'
-#' @examples
-#' fit <- nnet::multinom(Species ~ Sepal.Length + Sepal.Width,
-#'                       data = iris, trace = FALSE)
-#' probs <- predict(fit, type = "probs")
-#'
-#' combos <- profile_auc_combinations(iris$Species, probs, top_n = 3)
-#' combos$selected_observations
-#' head(combos$combinations)
-#'
-#' @seealso [profile_auc_influence()], [profile_outliers()]
+#' @param truth Actual class labels.
+#' @param probs Predicted class probabilities.
+#' @param top_n Number of top observations to combine.
+#' @param warn_threshold Warning threshold for flagged observations.
+#' @param iqr_multiplier IQR multiplier.
+#' @param lower Optional lower probability limit.
+#' @param upper Optional upper probability limit.
+#' @return Individual and combined influence results.
 #' @export
 profile_auc_combinations <- function(
     truth, probs,
@@ -487,7 +387,7 @@ profile_auc_combinations <- function(
     ))
   }
 
-  # Select the top_n most influential observations
+  # Select the top 5 most influential observations
   selected <- utils::head(individual$observation, top_n)
   selected <- as.integer(selected)
 

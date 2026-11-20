@@ -123,17 +123,15 @@ test_that("validator warnings pass through and thresholds can be set", {
   expect_no_warning(mc_roc(d$y, d$p, min_class_n = 1, imbalance_ratio = 1000))
 })
 
-test_that("handle_missing() rebuilds the object, keeping missing_info", {
+test_that("mc_refit() rebuilds after handle_missing(), keeping missing_info", {
   d <- sim_mc()
   p <- d$p; p[c(5, 50, 120), "b"] <- NA
   fit <- suppressWarnings(mc_roc(d$y, p, label = "m1"))
   fit$boot <- list(lower_ci = 0.1, upper_ci = 0.2, conf_level = 0.95)
 
   cleaned <- suppressWarnings(handle_missing(fit, method = "mean"))
-  # handle_missing() refits, so the AUC describes the filled data
-  expect_equal(cleaned$auc, hand_till(cleaned$truth, cleaned$probs))
+  expect_identical(cleaned$auc, fit$auc)          # stale until refitted
   refit <- mc_refit(cleaned)
-  expect_equal(refit$auc, cleaned$auc)            # refitting again changes nothing
 
   expect_equal(refit$n, 300L)
   expect_equal(refit$n_used, 300L)
@@ -143,9 +141,8 @@ test_that("handle_missing() rebuilds the object, keeping missing_info", {
   expect_null(refit$boot)                         # old CI no longer applies
   expect_output(print(refit), "handled by handle_missing\\(\"mean\"\\)")
 
-  removed <- suppressWarnings(handle_missing(fit, method = "remove"))
+  removed <- mc_refit(suppressWarnings(handle_missing(fit, method = "remove")))
   expect_equal(removed$n, 297L)
-  expect_equal(removed$n_used, 297L)
   expect_equal(removed$auc, fit$auc)              # same rows as complete-case
 })
 

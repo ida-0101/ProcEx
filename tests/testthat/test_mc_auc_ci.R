@@ -5,7 +5,9 @@
 # This file uses testthat and the functions loaded by ProcEx.
 # No manual source() call or external dataset is required.
 
+# ------------------------------------------------------------
 # Test data helpers
+# ------------------------------------------------------------
 
 make_ci_multiclass_data <- function() {
   truth <- factor(c(rep("A", 8), rep("B", 6), rep("C", 6)))
@@ -112,7 +114,9 @@ check_ci_result <- function(x, expected_n,
   expect_true(all(is.finite(x$bootstrap_values)))
 }
 
+# ------------------------------------------------------------
 # Test 1: Multiclass AUC and bootstrap confidence interval
+# ------------------------------------------------------------
 
 test_that("mc_auc_ci calculates multiclass AUC and CI", {
   d <- make_ci_multiclass_data()
@@ -163,7 +167,9 @@ test_that("mc_auc_ci calculates multiclass AUC and CI", {
   )
 })
 
+# ------------------------------------------------------------
 # Test 2: Binary classification support
+# ------------------------------------------------------------
 
 test_that("mc_auc_ci supports binary classification", {
   d <- make_ci_binary_data()
@@ -198,7 +204,9 @@ test_that("mc_auc_ci supports binary classification", {
   )
 })
 
+# ------------------------------------------------------------
 # Test 3: Optional bootstrap output
+# ------------------------------------------------------------
 
 test_that("bootstrap values can be displayed or hidden", {
   d <- make_ci_binary_data()
@@ -268,7 +276,9 @@ test_that("bootstrap values can be displayed or hidden", {
   expect_length(large_result$bootstrap_values, 150)
 })
 
+# ------------------------------------------------------------
 # Test 4: Input validation
+# ------------------------------------------------------------
 
 test_that("mc_auc_ci rejects invalid inputs", {
   d <- make_ci_multiclass_data()
@@ -427,7 +437,9 @@ test_that("mc_auc_ci rejects invalid inputs", {
   )
 })
 
+# ------------------------------------------------------------
 # Test 5: Reproducibility
+# ------------------------------------------------------------
 
 test_that("same seed gives reproducible bootstrap results", {
   d <- make_ci_multiclass_data()
@@ -475,7 +487,9 @@ test_that("same seed gives reproducible bootstrap results", {
   )
 })
 
+# ------------------------------------------------------------
 # Test 6: Different confidence levels
+# ------------------------------------------------------------
 
 test_that("confidence level controls percentile CI", {
   d <- make_ci_multiclass_data()
@@ -517,65 +531,4 @@ test_that("confidence level controls percentile CI", {
   # A 90% percentile CI should be inside the 95% CI.
   expect_gte(result90$lower_ci, result95$lower_ci)
   expect_lte(result90$upper_ci, result95$upper_ci)
-})
-
-
-# Stratified sampling and random numbers
-
-test_that("a class with a single row stays in every bootstrap sample", {
-  set.seed(1)
-  truth <- factor(c(rep("a", 40), rep("b", 40), "c"))
-  scores <- matrix(stats::rnorm(81 * 3), 81, 3)
-  scores[cbind(1:81, as.integer(truth))] <-
-    scores[cbind(1:81, as.integer(truth))] + 2
-  probabilities <- exp(scores) / rowSums(exp(scores))
-  colnames(probabilities) <- levels(truth)
-
-  warnings <- testthat::capture_warnings(
-    result <- mc_auc_ci(truth, probabilities, n_boot = 30, seed = 5)
-  )
-  expect_false(any(grepl("No observation for response level", warnings)))
-  expect_equal(result$n_failed, 0)
-
-  # Every replicate is the AUC of a resample that keeps all three classes
-  set.seed(5)
-  expected <- vapply(seq_len(30), function(b) {
-    index <- unlist(lapply(levels(truth), function(class_name) {
-      rows <- which(truth == class_name)
-      rows[sample.int(length(rows), length(rows), replace = TRUE)]
-    }))
-    as.numeric(pROC::multiclass.roc(truth[index],
-                                    probabilities[index, ])$auc)
-  }, numeric(1))
-  expect_equal(result$bootstrap_values, expected)
-})
-
-test_that("classes with several rows are resampled exactly as before", {
-  d <- make_ci_multiclass_data()
-  result <- mc_auc_ci(d$truth, d$probabilities, n_boot = 20, seed = 8)
-
-  # The original sampling, sample(class_index, ...), gives the same rows
-  # whenever a class has more than one row.
-  probs <- as.matrix(d$probabilities)
-  classes <- levels(droplevels(d$truth))
-  set.seed(8)
-  expected <- vapply(seq_len(20), function(b) {
-    index <- unlist(lapply(classes, function(class_name) {
-      class_index <- which(as.character(d$truth) == class_name)
-      sample(class_index, size = length(class_index), replace = TRUE)
-    }))
-    as.numeric(pROC::multiclass.roc(d$truth[index], probs[index, ])$auc)
-  }, numeric(1))
-  expect_equal(result$bootstrap_values, expected)
-})
-
-test_that("seed leaves the caller's random numbers unchanged", {
-  d <- make_ci_multiclass_data()
-
-  set.seed(100)
-  expected_next <- stats::runif(1)
-
-  set.seed(100)
-  invisible(mc_auc_ci(d$truth, d$probabilities, n_boot = 10, seed = 3))
-  expect_identical(stats::runif(1), expected_next)
 })

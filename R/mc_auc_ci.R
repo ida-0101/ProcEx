@@ -1,29 +1,14 @@
+
 #' Bootstrap Confidence Interval for Binary and Multiclass AUC
 #'
 #' Calculates AUC, bootstrap standard error, and a percentile
 #' confidence interval using stratified bootstrap resampling.
 #'
-#' @details
-#' For binary classification, the second class is treated as positive and
-#' the AUC is calculated with [pROC::roc()]. For three or more classes, the
-#' Hand & Till (2001) multiclass AUC is calculated with
-#' [pROC::multiclass.roc()].
+#' For binary classification, the second class is treated as positive.
+#' For multiclass classification, Hand-Till AUC is used.
 #'
-#' Each bootstrap replicate resamples rows with replacement separately within
-#' each class, so every class keeps its original size, including a class with
-#' a single row. The confidence interval uses the percentiles of the
-#' successful bootstrap AUCs; a replicate whose AUC cannot be calculated is
-#' counted in `n_failed`.
-#'
-#' Missing values are not allowed; remove or fill them first, for example with
-#' [handle_missing()]. Probability column names must match the class labels.
-#'
-#' With `seed`, the result is reproducible and the caller's random-number
-#' stream is left as it was.
-#'
-#' @param truth True class labels: a factor, character or integer vector.
-#' @param probabilities Matrix or data frame of predicted class
-#'   probabilities, one column per class, named exactly as the class labels.
+#' @param truth True class labels.
+#' @param probabilities Matrix of predicted class probabilities.
 #' @param n_boot Number of bootstrap replicates (default: 1000).
 #' @param conf_level Confidence level used to calculate the percentile
 #'   bootstrap confidence interval. The default is 0.95 (95% CI),
@@ -48,22 +33,6 @@
 #'   bootstrap_values (successful bootstrap AUC estimates),
 #'   and show_bootstrap_values (printing preference).
 #'
-#' @references Hand, D. J. & Till, R. J. (2001). A simple generalisation of
-#'   the area under the ROC curve for multiple class classification problems.
-#'   Machine Learning, 45, 171-186.
-#'
-#' @examples
-#' fit <- nnet::multinom(Species ~ Sepal.Length + Sepal.Width,
-#'                       data = iris, trace = FALSE)
-#' probs <- predict(fit, type = "probs")
-#'
-#' ci <- mc_auc_ci(iris$Species, probs, n_boot = 200, seed = 42)
-#' ci
-#' ci$lower_ci
-#' ci$upper_ci
-#'
-#' @seealso [mc_roc()] for the AUC and pairwise AUCs, [mc_auc_compare()] to
-#'   compare two models.
 #' @export
 mc_auc_ci <- function(truth,
                       probabilities,
@@ -164,21 +133,6 @@ mc_auc_ci <- function(truth,
       stop("seed must be a single non-negative integer.")
     }
 
-    # Put the caller's random-number state back when the function exits
-    global_env <- globalenv()
-    if (exists(".Random.seed", envir = global_env, inherits = FALSE)) {
-      saved_seed <- get(".Random.seed", envir = global_env, inherits = FALSE)
-      on.exit(assign(".Random.seed", saved_seed, envir = global_env),
-              add = TRUE)
-    } else {
-      on.exit(
-        if (exists(".Random.seed", envir = global_env, inherits = FALSE)) {
-          rm(".Random.seed", envir = global_env)
-        },
-        add = TRUE
-      )
-    }
-
     set.seed(seed)
   }
 
@@ -232,13 +186,11 @@ mc_auc_ci <- function(truth,
 
         class_index <- which(as.character(truth) == class_name)
 
-        # Index through sample.int(): sample(x) on a single number k would
-        # draw from 1:k instead of returning k.
-        class_index[sample.int(
-          length(class_index),
+        sample(
+          class_index,
           size = length(class_index),
           replace = TRUE
-        )]
+        )
       }),
       use.names = FALSE
     )

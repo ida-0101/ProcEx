@@ -3,25 +3,6 @@
 #' Checks whether true class labels and predicted class probabilities
 #' are suitable for multiclass classification analysis.
 #'
-#' @details
-#' Problems that make the analysis impossible are reported as errors:
-#' missing or mismatched labels, probability columns that are not numeric or
-#' not named exactly as the observed classes, values that are missing,
-#' infinite or outside 0 to 1, and rows that do not sum to 1 (within 1e-6).
-#' Problems that make results less reliable are reported as warnings: a class
-#' with fewer than `min_class_n` observations, or a ratio between the largest
-#' and smallest class above `imbalance_ratio`.
-#'
-#' The `status` component summarises the result:
-#'
-#' * `"VALID"`: no errors or warnings.
-#' * `"VALID_WITH_WARNINGS"`: usable, but see `warnings`.
-#' * `"NOT_MULTICLASS"`: no errors, but fewer than 3 classes were observed.
-#' * `"INVALID"`: at least one error; see `errors`.
-#'
-#' [mc_roc()] and [mc_auc_compare()] run these checks themselves: errors stop
-#' them and warnings are passed on.
-#'
 #' @param truth A vector or factor containing the true class labels.
 #' @param probs A data frame or matrix containing predicted probabilities
 #'   for each class.
@@ -36,19 +17,6 @@
 #'   the result also contains a concern explaining that ProcEx is designed
 #'   for multiclass analysis.
 #'
-#' @examples
-#' fit <- nnet::multinom(Species ~ Sepal.Length + Sepal.Width,
-#'                       data = iris, trace = FALSE)
-#' probs <- predict(fit, type = "probs")
-#'
-#' checks <- validate_classification_data(iris$Species, probs)
-#' checks$status
-#' checks$class_counts
-#'
-#' # Rounded probabilities no longer sum to 1, which is reported as an error
-#' validate_classification_data(iris$Species, round(probs, 2))$errors
-#'
-#' @seealso [mc_roc()], which runs these checks.
 #' @export
 validate_classification_data <- function(
     truth,
@@ -265,13 +233,7 @@ validate_classification_data <- function(
         if (any(abs(row_totals - 1) > 1e-6)) {
           errors <- c(
             errors,
-            paste0(
-              "Probabilities for each observation must sum to 1 ",
-              "(largest difference: ",
-              signif(max(abs(row_totals - 1)), 3),
-              "). If they were rounded, divide each row by its total, ",
-              "for example probs / rowSums(probs)."
-            )
+            "Probabilities for each observation must sum to 1."
           )
         }
       }
