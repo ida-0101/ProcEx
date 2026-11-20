@@ -1,10 +1,9 @@
-# mc_roc.R: the core mc_roc object used by handle_missing(), mc_auc_compare()
-# and plot().
+# mc_roc.R -- the core object every other ProcEx function receives.
 #
 #   mc_roc()          user-facing: read the inputs, validate them, build the object
 #   new_mc_roc()      internal constructor (assumes inputs are already clean)
 #   mc_refit()        rebuild an object after the data inside it changed;
-#                     handle_missing() calls this as its last step
+#                     handle_missing() should call this as its last step
 #   .mc_fit()         the AUC via pROC: overall, pairwise table, named curves
 #
 # Shared helpers for the other functions live in mc_roc_helpers.R.
@@ -195,7 +194,7 @@ mc_refit <- function(x, ...) {
   list(auc = as.numeric(roc$auc), pairwise = pairwise, roc = roc)
 }
 
-# Input handling
+# ---- input handling ---------------------------------------------------------
 
 .mc_complete <- function(truth, probs) {
   !is.na(truth) & stats::complete.cases(probs)
@@ -324,7 +323,7 @@ mc_refit <- function(x, ...) {
   if (is.name(expr)) as.character(expr) else NULL
 }
 
-# Print and summary
+# ---- print and summary ------------------------------------------------------
 
 .mc_fmt <- function(x, digits) formatC(x, format = "f", digits = digits)
 

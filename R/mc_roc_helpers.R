@@ -1,4 +1,4 @@
-# mc_roc_helpers.R: small shared tools for the functions that receive an
+# mc_roc_helpers.R -- small shared tools for the functions that receive an
 # mc_roc object. None are exported; call them from inside the package.
 #
 #   mc_data(x)            complete-case truth + probs (aligned, ready to use)

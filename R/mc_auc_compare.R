@@ -112,7 +112,7 @@ mc_auc_compare <- function(truth,
                            seed       = NULL,
                            labels     = NULL) {
 
-  # Settings
+  # ---- settings ---------------------------------------------------------------
   if (!is.numeric(n_boot) || length(n_boot) != 1 || is.na(n_boot) ||
       n_boot < 1 || n_boot != round(n_boot))
     stop("n_boot must be a single positive integer.", call. = FALSE)
@@ -130,7 +130,7 @@ mc_auc_compare <- function(truth,
     stop("labels must be NULL or a character vector of length 2.",
          call. = FALSE)
 
-  # The two models
+  # ---- the two models -----------------------------------------------------------
   # Default names are the variable names passed, as mc_roc() does.
   name_of <- function(expr) {
     l <- .mc_default_label(expr)
@@ -182,7 +182,7 @@ mc_auc_compare <- function(truth,
     }, character(1))
   }
 
-  # Read the inputs
+  # ---- read the inputs ------------------------------------------------------------
   if (!is.null(levels)) {
     if (!is.atomic(levels) || anyNA(levels) || anyDuplicated(levels)) {
       stop("levels must be a vector of distinct class labels.", call. = FALSE)
@@ -235,7 +235,7 @@ mc_auc_compare <- function(truth,
       "paired."), n - n_used, n, 100 * (n - n_used) / n), call. = FALSE)
   }
 
-  # Fit both models with mc_roc() on the same rows
+  # ---- fit both models with mc_roc() on the same rows ----------------------------
   truth_k <- droplevels(truth[keep])
   fits <- .mc_collect_warnings(lapply(1:2, function(m) {
     .mc_with_model_name(m, mc_roc(truth_k,
@@ -252,7 +252,7 @@ mc_auc_compare <- function(truth,
                          auc2 = pw2$auc, difference = pw1$auc - pw2$auc,
                          stringsAsFactors = FALSE)
 
-  # Paired stratified bootstrap
+  # ---- paired stratified bootstrap ----------------------------------------------------
   boot <- .mc_with_seed(seed, mc_boot_auc(fits, n_boot))
   boot_differences <- boot[, 1] - boot[, 2]
 
