@@ -23,7 +23,7 @@ Authors@R:
              role = "aut"),
       person("Dovini", "Jayasinghe",
              email = "dovinij@gmail.com",
-             role = "aut",
+             role = c("aut", "ths"),
              comment = "Academic supervisor"),
       person("Adelaide University",
              role = "cph")
