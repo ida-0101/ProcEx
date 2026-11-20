@@ -124,11 +124,11 @@ ci
 `mc_auc_compare()` asks whether the petal model is really better than the
 sepal model, or whether the gap could be chance. Each bootstrap replicate
 resamples the rows once and scores both models on those same rows, which
-keeps the comparison paired.
+keeps the comparison paired. Model 1 is the petal model and Model 2 the
+sepal model, in the order they are passed.
 
 ```{r compare}
-comparison <- mc_auc_compare(truth, petals, sepals, n_boot = 500, seed = 1,
-                             labels = c("Petals", "Sepals"))
+comparison <- mc_auc_compare(truth, petals, sepals, n_boot = 500, seed = 1)
 comparison
 ```
 
@@ -137,7 +137,7 @@ better at the 95% level. The plot shows the same thing: the shaded interval
 lies to the right of the dashed zero line.
 
 ```{r compare-plot, fig.height = 3.6}
-plot(comparison)
+plot(comparison, labels = c("Petals", "Sepals"))
 ```
 
 The per-pair AUCs show *where* the petal model gains: both models separate
@@ -149,7 +149,7 @@ comparison$pairwise
 ```
 
 ```{r compare-pairs, fig.height = 2.8}
-plot(comparison, type = "pairs")
+plot(comparison, type = "pairs", labels = c("Petals", "Sepals"))
 ```
 
 ## 6. Missing values
@@ -163,9 +163,9 @@ with_gaps[c(5, 70), "setosa"] <- NA
 fit_gaps <- mc_roc(truth, with_gaps)
 ```
 
-`mc_auc_compare()` leaves such a row out of *both* models, so the two AUCs
-are still computed on the same rows. To remove or fill missing values in an
-`mc_roc` object, see `?handle_missing`.
+`mc_auc_ci()` stops when there are missing values, and `mc_auc_compare()`
+passes them to pROC, so remove or fill missing values before running either.
+For an `mc_roc` object, see `?handle_missing`.
 
 ## 7. Why the ROC direction is fixed
 
@@ -204,8 +204,8 @@ mc_roc(truth, swapped)$auc
   `mc_auc_ci()` also handles two classes; for binary problems pROC itself
   offers more (DeLong intervals, `roc.test()`).
 * Probabilities need one column per class, named exactly as the class labels
-  (any order), with values between 0 and 1 and rows summing to 1. Scores
-  that are not probabilities are rejected.
+  (any order). `mc_roc()` also checks that values are between 0 and 1 and
+  that rows sum to 1, and rejects scores that are not probabilities.
 * Bootstrap intervals describe the uncertainty from which rows happened to
   be in the evaluation data; they do not include the variation from
   retraining the model.

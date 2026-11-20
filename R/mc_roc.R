@@ -12,9 +12,9 @@
 #'
 #' Computes the Hand & Till (2001) multiclass AUC with
 #' [pROC::multiclass.roc()] and stores everything the other ProcEx functions
-#' need in a single `mc_roc` object. [handle_missing()],
-#' [mc_auc_compare()] and [plot()][plot.mc_roc] accept this object;
-#' [mc_auc_ci()] takes the labels and probabilities directly.
+#' need in a single `mc_roc` object. Every other function
+#' ([handle_missing()], `mc_auc_ci()`, `mc_auc_compare()`, `plot()`) receives
+#' this object.
 #'
 #' @details
 #' The inputs are checked in two stages. `mc_roc()` first checks that it can
@@ -59,10 +59,10 @@
 #'   \item{checks}{list returned by [validate_classification_data()] for the
 #'     rows used}
 #'   \item{missing_info}{NULL; filled by [handle_missing()]}
-#'   \item{boot}{NULL; reserved for a stored bootstrap result with the same
-#'     components as [mc_auc_ci()] (`original_auc`, `standard_error`,
-#'     `lower_ci`, `upper_ci`, `conf_level`, `n_boot`, `n_successful`,
-#'     `n_failed`, `bootstrap_values`). Not filled by any function yet.}
+#'   \item{boot}{NULL; filled by `mc_auc_ci()` with its result list
+#'     (`original_auc`, `standard_error`, `lower_ci`, `upper_ci`,
+#'     `conf_level`, `n_boot`, `n_successful`, `n_failed`,
+#'     `bootstrap_values`)}
 #'   \item{pROC_version}{character, for reproducibility}
 #' }
 #'
@@ -336,8 +336,7 @@ mc_refit <- function(x, ...) {
 # Reads the result list of mc_auc_ci() stored in x$boot.
 .mc_fmt_ci <- function(boot, digits) {
   if (is.null(boot) || is.null(boot$lower_ci)) {
-    # mc_auc_ci() returns its own result and does not fill x$boot.
-    return("  (for a confidence interval, use mc_auc_ci())")
+    return("  (no CI yet: run mc_auc_ci())")
   }
   lvl <- if (is.null(boot$conf_level)) "" else
     paste0(round(100 * boot$conf_level), "% ")

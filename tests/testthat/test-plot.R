@@ -19,7 +19,7 @@ iris_models <- function() {
        weak   = stats::predict(weak,   type = "probs"))
 }
 
-# ---- plot.mc_roc ------------------------------------------------------------
+# plot.mc_roc
 
 test_that("plot.mc_roc draws both types and returns the object invisibly", {
   d <- sim_mc(n = 300, k = 4, signal = 1.5, seed = 2)
@@ -110,7 +110,7 @@ test_that("AUC colours run red below chance, grey at 0.5, blue toward 1", {
   expect_gt(rgb["blue", 3], rgb["red", 3])     # 1: blue
 })
 
-# ---- mc_auc_compare per-pair AUCs ---------------------------------------------
+# mc_auc_compare per-pair AUCs
 
 test_that("mc_auc_compare stores per-pair AUCs that average to the overall AUC", {
   m <- iris_models()
@@ -138,7 +138,7 @@ test_that("per-pair AUCs match mc_roc() and ignore column order", {
   expect_equal(shuffled$pairwise, res$pairwise)
 })
 
-# ---- plot.mc_auc_compare -------------------------------------------------------
+# plot.mc_auc_compare
 
 test_that("plot.mc_auc_compare draws both types and returns invisibly", {
   m <- iris_models()
@@ -184,14 +184,4 @@ test_that("plot.mc_auc_compare rejects bad input", {
   draw(expect_invisible(plot(old)))   # the bootstrap view still works
 
   expect_error(plot.mc_auc_compare(list()), "mc_auc_compare")
-})
-
-test_that("plot.mc_auc_compare uses the stored model names by default", {
-  m <- iris_models()
-  res <- mc_auc_compare(m$truth, m$strong, m$weak, n_boot = 20, seed = 1,
-                        labels = c("Petals", "Sepals"))
-  draw(expect_invisible(plot(res)))
-  no_labels <- res
-  no_labels$labels <- NULL                 # e.g. a result from an older version
-  draw(expect_invisible(plot(no_labels, type = "pairs")))
 })

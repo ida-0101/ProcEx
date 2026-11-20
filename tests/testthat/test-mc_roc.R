@@ -152,7 +152,7 @@ test_that("print() and summary() are readable and return invisibly", {
   out <- capture.output(res <- print(fit))
   expect_identical(res, fit)
   expect_true(any(grepl("AUC", out)))
-  expect_true(any(grepl("for a confidence interval, use mc_auc_ci", out)))
+  expect_true(any(grepl("no CI yet", out)))
   expect_lt(length(out), 15)                       # no wall of raw data
   s <- summary(fit)
   expect_s3_class(s, "summary.mc_roc")

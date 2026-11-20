@@ -375,14 +375,11 @@ compare_result <- mc_auc_compare(
   probs2 = probs2,
   n_boot = 200,
   conf_level = 0.95,
-  seed = 42,
-  labels = c("All features", "Size features")
+  seed = 42
 )
 
 compare_result
 ```
-
-Each model goes through the same checks as `mc_roc()`, and the two AUCs are the same values `mc_roc()` reports. `labels` is optional; without it, the names come from `mc_roc` objects or from the variable names passed as `probs1` and `probs2`.
 
 The main results:
 
@@ -407,15 +404,13 @@ The results include:
 
 These names match `mc_auc_ci()`, so both bootstrap results are read the same way.
 
-A row with a missing value in either model is left out of both models, with a warning, so the two AUCs are always computed on the same rows.
-
 The function reports very small empirical bootstrap p-values as less than `1 / n_successful`, reflecting the resolution of the resampling procedure.
 
 Plot the comparison:
 
 ```r
-plot(compare_result)
-plot(compare_result, type = "pairs")
+plot(compare_result, labels = c("All features", "Size features"))
+plot(compare_result, type = "pairs", labels = c("All features", "Size features"))
 ```
 
 The first plot shows the bootstrap differences with the confidence interval shaded and zero marked: if the shaded interval does not cover zero, the models differ at that confidence level. The second shows which pairs of classes each model separates better.
@@ -424,7 +419,7 @@ The first plot shows the bootstrap differences with the confidence interval shad
 
 ProcEx functions have specific input requirements.
 
-Predicted probabilities should correspond to the supplied true class labels. `mc_roc()` and `mc_auc_compare()` need one probability column per class, named exactly as the class labels (any order), with values between 0 and 1 and each row summing to 1. Other scores, such as SVM decision values or logits, are rejected.
+Predicted probabilities should correspond to the supplied true class labels, with one probability column per class, named exactly as the class labels (any order). `mc_roc()` also checks that values are between 0 and 1 and that each row sums to 1, and rejects other scores such as SVM decision values or logits.
 
 The main multiclass ROC and model comparison functions require at least three classes, while `mc_auc_ci()` also supports binary AUC estimation.
 
@@ -440,7 +435,7 @@ ProcEx is developed as a structured R package with source code, function documen
 
 Automated tests are implemented using `testthat`.
 
-For version 0.0.0.9001, the package test run produced 145 tests with 890 passing expectations, with zero failures, zero warnings, and zero skipped tests.
+For version 0.0.0.9001, the package test run produced 130 tests with 844 passing expectations, with zero failures, zero warnings, and zero skipped tests.
 
 The recorded R CMD check, including building the vignette, also completed with zero errors, zero warnings, and zero notes.
 

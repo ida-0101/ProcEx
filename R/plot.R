@@ -1,23 +1,15 @@
-# plot.R -- plot methods for mc_roc and mc_auc_compare objects.
-#
-#   plot.mc_roc()           pairwise ROC curves, or a heatmap of pairwise AUCs
-#   plot.mc_auc_compare()   bootstrap differences, or per-pair AUCs of both
-#                           models side by side
-#
-# Base graphics only, so plotting adds no dependency. Every function saves
-# and restores the user's par() settings.
+# Plot methods for mc_roc and mc_auc_compare objects, using base graphics.
 
-# ---- shared look ------------------------------------------------------------
-
+# Colours used by the plots.
 .mc_col <- list(
-  model1    = "#2a78d6",   # categorical slot 1 (blue)
-  model2    = "#eb6834",   # categorical slot 2 (orange)
-  ink       = "#0b0b0b",   # primary text
+  model1    = "#2a78d6",   # first curve or model (blue)
+  model2    = "#eb6834",   # second curve or model (orange)
+  ink       = "#0b0b0b",   # main text
   ink2      = "#52514e",   # secondary text
-  muted     = "#8a8984",   # axes, reference lines
-  grid      = "#e3e2de",   # recessive grid
-  band      = "#cde2fb",   # light blue band for intervals
-  neutral   = "#f0efec"    # diverging midpoint
+  muted     = "#8a8984",   # axes and reference lines
+  grid      = "#e3e2de",   # grid lines
+  band      = "#cde2fb",   # interval band
+  neutral   = "#f0efec"    # AUC of 0.5 in the heatmap
 )
 
 # Diverging ramp for AUC: red below 0.5 (worse than chance), grey at 0.5,
@@ -50,8 +42,6 @@
   }
   type[1]
 }
-
-# ---- plot.mc_roc ------------------------------------------------------------
 
 #' Plot a multiclass ROC object
 #'
@@ -292,8 +282,6 @@ plot.mc_roc <- function(x, type = c("pairs", "heatmap"), pairs = NULL,
                  cex.axis = 0.75, col.axis = .mc_col$ink2)
 }
 
-# ---- plot.mc_auc_compare -----------------------------------------------------
-
 #' Plot a comparison of two multiclass models
 #'
 #' Shows the result of [mc_auc_compare()] either as the bootstrap
@@ -315,8 +303,7 @@ plot.mc_roc <- function(x, type = c("pairs", "heatmap"), pairs = NULL,
 #'
 #' @param x An `mc_auc_compare` object.
 #' @param type `"bootstrap"` or `"pairs"`.
-#' @param labels Names for the two models, in order. Defaults to the labels
-#'   stored by [mc_auc_compare()].
+#' @param labels Names for the two models, in order.
 #' @param main Optional title.
 #' @param ... Ignored.
 #'
@@ -331,23 +318,20 @@ plot.mc_roc <- function(x, type = c("pairs", "heatmap"), pairs = NULL,
 #' res <- mc_auc_compare(iris$Species,
 #'                       predict(fit1, type = "probs"),
 #'                       predict(fit2, type = "probs"),
-#'                       n_boot = 200, seed = 42,
-#'                       labels = c("Petals", "Sepals"))
+#'                       n_boot = 200, seed = 42)
 #' plot(res)
-#' plot(res, type = "pairs")
+#' plot(res, type = "pairs", labels = c("Petals", "Sepals"))
 #' }
 #'
 #' @seealso [mc_auc_compare()], [plot.mc_roc()]
 #' @export
 plot.mc_auc_compare <- function(x, type = c("bootstrap", "pairs"),
-                                labels = NULL, main = NULL, ...) {
+                                labels = c("Model 1", "Model 2"),
+                                main = NULL, ...) {
   if (!inherits(x, "mc_auc_compare")) {
     stop("x must be an object of class 'mc_auc_compare'.", call. = FALSE)
   }
   type <- .mc_check_choice(type, c("bootstrap", "pairs"))
-  if (is.null(labels)) {
-    labels <- if (is.null(x$labels)) c("Model 1", "Model 2") else x$labels
-  }
   if (!is.character(labels) || length(labels) != 2 || anyNA(labels)) {
     stop("labels must be a character vector of length 2.", call. = FALSE)
   }
@@ -356,8 +340,8 @@ plot.mc_auc_compare <- function(x, type = c("bootstrap", "pairs"),
     .mc_plot_boot_diff(x, labels, main)
   } else {
     if (is.null(x$pairwise)) {
-      stop("This result has no per-pair AUCs; it was made by an older ",
-           "version of ProcEx. Re-run mc_auc_compare().", call. = FALSE)
+      stop("This result has no per-pair AUCs. They need probability ",
+           "columns named after the classes.", call. = FALSE)
     }
     .mc_plot_pair_compare(x, labels, main)
   }

@@ -147,23 +147,3 @@ mc_boot_auc <- function(x, n_boot = 1000) {
   }
   invisible(x)
 }
-
-#' Evaluate an expression with a fixed seed, then restore the caller's
-#' random-number state, so a `seed` argument never changes the user's own
-#' random stream. With `seed = NULL` the expression runs unchanged.
-#' @noRd
-.mc_with_seed <- function(seed, expr) {
-  if (is.null(seed)) return(expr)
-  env <- globalenv()
-  had_seed <- exists(".Random.seed", envir = env, inherits = FALSE)
-  if (had_seed) old_seed <- get(".Random.seed", envir = env, inherits = FALSE)
-  on.exit({
-    if (had_seed) {
-      assign(".Random.seed", old_seed, envir = env)
-    } else if (exists(".Random.seed", envir = env, inherits = FALSE)) {
-      rm(".Random.seed", envir = env)
-    }
-  }, add = TRUE)
-  set.seed(seed)
-  expr
-}
