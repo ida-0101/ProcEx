@@ -125,7 +125,7 @@ handle_missing <- function(
       method = method
     )
 
-    return(x)
+    return(mc_refit(x))
   }
 
   # Mean or median imputation
@@ -244,5 +244,5 @@ handle_missing <- function(
     method = method
   )
 
-  return(x)
+  return(mc_refit(x))
 }
